@@ -1,0 +1,635 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#faf9f5" />
+  <title>MBTI 测试 · Song Chaoyang</title>
+  <style>
+    html,body,#root{min-height:100%;margin:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;background:#faf9f5}
+    .site-back{position:fixed;z-index:9999;left:14px;top:14px;padding:8px 12px;border-radius:999px;background:rgba(20,20,20,.82);color:#fff;text-decoration:none;font-size:13px;backdrop-filter:blur(8px)}
+  </style>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+  <a class="site-back" href="/tools/">← 工具中心</a>
+  <div id="root"></div>
+  <script>
+    window.storage = {
+      async get(key){ const value=localStorage.getItem(key); return value==null?null:{value}; },
+      async set(key,value){ localStorage.setItem(key,value); return true; }
+    };
+  </script>
+  <script type="text/babel" data-presets="env,react">
+    const { useState, useEffect, useRef, useMemo, useCallback } = React;
+
+/* ═══════════════════════════════════════════════════════════
+   MBTI 性格测评模拟器 · 专业版
+   完整版 93题 / 精简版 60题（去重 + 维度平衡 + 顺序打散）
+   ═══════════════════════════════════════════════════════════ */
+
+const FULL = [
+  ["当你要外出一整天，你会——","计划好要做什么以及什么时候做","说去就去","J","P"],
+  ["你认为自己是一个——","较为随兴所至的人","较为有条理的人","P","J"],
+  ["假如你是一位老师，你会选教——","以事实为主的课程","涉及理论的课程","S","N"],
+  ["你通常——","与人容易混熟","比较沉静或矜持","E","I"],
+  ["一般来说，你和哪些人比较合得来？","富于想象力的人","务实的人","N","S"],
+  ["你是否经常让——","情感支配理智","理智主宰情感","F","T"],
+  ["处理许多事情时，你更喜欢——","凭兴致行事","按照计划行事","P","J"],
+  ["你觉得自己——","容易让人了解","不太容易让人了解","E","I"],
+  ["按照日程表做事——","合你心意","令你感到束缚","J","P"],
+  ["当你接到一项特别任务，你更喜欢——","开始前仔细规划","边做边摸索","J","P"],
+  ["在大多数情况下，你更倾向于——","顺其自然","按计划表行事","P","J"],
+  ["大多数人会说你是一个——","重视隐私的人","非常坦率开放的人","I","E"],
+  ["你宁愿被人认为是一个——","实事求是的人","机灵有创意的人","S","N"],
+  ["在一大群人当中，通常是——","你主动介绍大家认识","别人来介绍你","E","I"],
+  ["你更愿意和哪类人交朋友？","常提出新主意的人","脚踏实地的人","N","S"],
+  ["你更倾向于——","重视感情多于逻辑","重视逻辑多于感情","F","T"],
+  ["你比较喜欢——","等事情发展了再作计划","很早就开始规划","P","J"],
+  ["你喜欢花很多时间——","一个人独处","和别人在一起","I","E"],
+  ["与很多人在一起会——","令你精力充沛","常让你感到疲惫","E","I"],
+  ["你比较喜欢——","提前安排好约会和社交活动","无拘无束，看当时有什么好玩就做什么","J","P"],
+  ["规划一次旅行时，你更喜欢——","大部分时间跟着当天的感觉走","事先知道大部分日子会做什么","P","J"],
+  ["在社交聚会中，你——","有时感到无趣","常常乐在其中","I","E"],
+  ["你通常——","和别人容易打成一片","倾向于独处一隅","E","I"],
+  ["哪类人更吸引你？","思维敏捷、见解独到的人","务实稳重、经验丰富的人","N","S"],
+  ["在日常工作中，你更倾向于——","喜欢处理突发状况带来的紧迫感","预先计划以避免在压力下工作","P","J"],
+  ["你觉得别人通常——","要花很长时间才能了解你","很快就能了解你","I","E"],
+  ["注重隐私 vs 坦率开放","注重隐私","坦率开放","I","E"],
+  ["预先安排 vs 无计划","预先安排的","无计划的","J","P"],
+  ["抽象 vs 具体","抽象","具体","N","S"],
+  ["温柔 vs 坚定","温柔","坚定","F","T"],
+  ["思考 vs 感受","思考","感受","T","F"],
+  ["事实 vs 意念","事实","意念","S","N"],
+  ["冲动 vs 决断","冲动","决断","P","J"],
+  ["热情 vs 文静","热情","文静","E","I"],
+  ["文静 vs 外向","文静","外向","I","E"],
+  ["有系统 vs 随意","有系统","随意","J","P"],
+  ["理论 vs 确定","理论","确定","N","S"],
+  ["敏感 vs 公正","敏感","公正","F","T"],
+  ["令人信服 vs 感人的","令人信服","感人的","T","F"],
+  ["事实陈述 vs 抽象概念","事实陈述","抽象概念","S","N"],
+  ["不受约束 vs 预先安排","不受约束","预先安排","P","J"],
+  ["矜持 vs 健谈","矜持","健谈","I","E"],
+  ["有条不紊 vs 不拘小节","有条不紊","不拘小节","J","P"],
+  ["灵感创意 vs 客观实况","灵感创意","客观实况","N","S"],
+  ["同情怜悯 vs 高瞻远瞩","同情怜悯","高瞻远瞩","F","T"],
+  ["利益 vs 祝福","利益","祝福","T","F"],
+  ["务实的 vs 理论的","务实的","理论的","S","N"],
+  ["朋友不多 vs 朋友众多","朋友不多","朋友众多","I","E"],
+  ["有系统 vs 即兴","有系统","即兴","J","P"],
+  ["富想象力 vs 就事论事","富想象力","就事论事","N","S"],
+  ["亲切的 vs 客观的","亲切的","客观的","F","T"],
+  ["客观的 vs 热情的","客观的","热情的","T","F"],
+  ["建造 vs 发明","建造","发明","S","N"],
+  ["安静 vs 爱社交","安静","爱社交","I","E"],
+  ["理论 vs 事实","理论","事实","N","S"],
+  ["富同情心 vs 合逻辑","富同情心","合逻辑","F","T"],
+  ["善分析 vs 多愁善感","善分析","多愁善感","T","F"],
+  ["合情合理 vs 令人着迷","合情合理","令人着迷","S","N"],
+  ["一周内要完成一个大项目，你开始时会——","把不同工作依次列出","马上动手做","J","P"],
+  ["在社交场合中，你经常感到——","与某些人很难打开话匣子","与多数人都能从容长谈","I","E"],
+  ["要做许多人都在做的事，你更喜欢——","按照普遍认可的方法去做","构想一个自己的方法","S","N"],
+  ["你刚认识的朋友能否说出你的兴趣？","马上就可以","要等他们真正了解你之后才行","E","I"],
+  ["你通常更喜欢的科目是——","讲授概念和原则的","讲授事实和数据的","N","S"],
+  ["哪个是更高的赞誉？被称许为——","一贯感性的人","一贯理性的人","F","T"],
+  ["你觉得按照日程表做事——","有时需要，但通常不太喜欢","大多数情况下有帮助且乐于这样做","P","J"],
+  ["和一群人在一起，你通常会——","跟少数熟悉的人交谈","参与大伙的谈话","I","E"],
+  ["在社交聚会上，你往往——","是说话较多的那个","让别人多说","E","I"],
+  ["把周末要完成的事列成清单，这个想法——","合你意","让你提不起劲","J","P"],
+  ["哪个是更高的赞誉？被称许为——","能干的人","富有同情心的人","T","F"],
+  ["你通常喜欢——","事先安排好社交活动","随性而为","J","P"],
+  ["做一个大型作业时，你更倾向于——","边做边想该做什么","先把工作按步骤细分","P","J"],
+  ["你能滔滔不绝地与人聊天吗？","只限于有共同兴趣的人","几乎跟任何人都可以","I","E"],
+  ["你更倾向于——","沿用证明有效的方法","分析问题并寻找新解决方案","S","N"],
+  ["为乐趣而阅读时，你更喜欢——","奇特或创新的表达方式","作者直话直说","N","S"],
+  ["你更愿意为哪类上司工作？","为人和善，但偶尔前后不一致的","措辞犀利，但始终逻辑清晰的","F","T"],
+  ["你做事多数是——","按当天心情来","照拟好的计划来","P","J"],
+  ["你是否——","能和任何人从容交谈","只对某些人或在特定场合才畅所欲言","E","I"],
+  ["做决定时，你认为更重要的是——","依据事实衡量","考虑他人的感受和意见","T","F"],
+  ["想象的 vs 真实的","想象的","真实的","N","S"],
+  ["仁慈慷慨 vs 意志坚定","仁慈慷慨的","意志坚定的","F","T"],
+  ["公正 vs 有关怀心","公正的","有关怀心的","T","F"],
+  ["制作 vs 设计","制作","设计","S","N"],
+  ["可能性 vs 必然性","可能性","必然性","N","S"],
+  ["温柔 vs 力量","温柔","力量","F","T"],
+  ["实际 vs 感性","实际","感性","T","F"],
+  ["制造 vs 创造","制造","创造","S","N"],
+  ["新颖的 vs 已知的","新颖的","已知的","N","S"],
+  ["同情 vs 分析","同情","分析","F","T"],
+  ["坚持己见 vs 温柔有爱","坚持己见","温柔有爱心","T","F"],
+  ["具体的 vs 抽象的","具体的","抽象的","S","N"],
+  ["全心投入 vs 意志坚决","全心投入","意志坚决的","F","T"],
+  ["能干 vs 仁慈","能干","仁慈","T","F"],
+  ["务实 vs 创新","务实","创新","S","N"],
+];
+
+/* 精简版：60题索引（每维度15题，四维轮转排列，去除全部重复项） */
+const SHORT_IDX = [
+  // Part 1 · 情境判断 33题
+  0, 3, 2, 5, 1, 11, 4, 63, 6, 13, 12, 68, 8, 17, 60, 74,
+  9, 18, 73, 77, 16, 21, 19, 59, 20, 61, 24, 65, 58, 66, 67, 76, 75,
+  // Part 2 · 词语偏好 27题
+  28, 29, 33, 31, 30, 27, 43, 37, 41, 46, 38, 42, 57, 44, 47,
+  78, 45, 48, 82, 50, 53, 85, 56, 86, 79, 92, 87,
+];
+
+const SEC_FULL = [
+  { t:"行为倾向", s:"哪个答案更贴切地描述你的日常感受或行为？", r:[0,26] },
+  { t:"词语偏好", s:"在下列每对词语中，哪个更合你心意？", r:[26,58] },
+  { t:"情境选择", s:"哪个答案更贴切地描述你的日常感受或行为？", r:[58,78] },
+  { t:"词语偏好", s:"在下列每对词语中，哪个更合你心意？", r:[78,93] },
+];
+const SEC_SHORT = [
+  { t:"情境判断", s:"哪个答案更贴切地描述你的日常感受或行为？", r:[0,33] },
+  { t:"词语偏好", s:"在下列每对词语中，哪个更合你心意？", r:[33,60] },
+];
+
+/* ═══ 认知功能 ═══ */
+const FN_NAMES = {Ni:"内倾直觉",Ne:"外倾直觉",Si:"内倾感觉",Se:"外倾感觉",Ti:"内倾思考",Te:"外倾思考",Fi:"内倾情感",Fe:"外倾情感"};
+const FN_DESC = {
+  Ni:"善于洞察深层模式与未来趋势，思维高度聚焦",
+  Ne:"善于发散联想，看到多种可能性与创意连接",
+  Si:"重视过去经验与细节记忆，偏好稳定与传统",
+  Se:"对当下环境高度敏感，善于捕捉即时信息",
+  Ti:"构建内在逻辑框架，追求原理层面的精确",
+  Te:"注重外部效率与客观标准，善于组织和执行",
+  Fi:"依据深层个人价值观做判断，追求真实与和谐",
+  Fe:"关注群体情感氛围，善于协调人际关系",
+};
+const STACKS = {
+  ISTJ:["Si","Te","Fi","Ne"],ISFJ:["Si","Fe","Ti","Ne"],INFJ:["Ni","Fe","Ti","Se"],INTJ:["Ni","Te","Fi","Se"],
+  ISTP:["Ti","Se","Ni","Fe"],ISFP:["Fi","Se","Ni","Te"],INFP:["Fi","Ne","Si","Te"],INTP:["Ti","Ne","Si","Fe"],
+  ESTP:["Se","Ti","Fe","Ni"],ESFP:["Se","Fi","Te","Ni"],ENFP:["Ne","Fi","Te","Si"],ENTP:["Ne","Ti","Fe","Si"],
+  ESTJ:["Te","Si","Ne","Fi"],ESFJ:["Fe","Si","Ne","Ti"],ENFJ:["Fe","Ni","Se","Ti"],ENTJ:["Te","Ni","Se","Fi"],
+};
+const FN_ROLES = ["主导功能 · 最擅长","辅助功能 · 日常依赖","第三功能 · 成长空间","劣势功能 · 盲区"];
+const FN_COLORS = ["#4361ee","#2a9d8f","#e9c46a","#e76f51"];
+
+const FAMOUS = {
+  ISTJ:["沃伦·巴菲特","默克尔","曾国藩"], ISFJ:["德蕾莎修女","凯特王妃","鲁迅"],
+  INFJ:["甘地","马丁·路德·金","尼采"], INTJ:["埃隆·马斯克","牛顿","诸葛亮"],
+  ISTP:["迈克尔·乔丹","贝尔·格里尔斯","李小龙"], ISFP:["莫扎特","鲍勃·迪伦","周杰伦"],
+  INFP:["莎士比亚","托尔金","三毛"], INTP:["爱因斯坦","达尔文","陈寅恪"],
+  ESTP:["丘吉尔","理查德·布兰森","曹操"], ESFP:["玛丽莲·梦露","威尔·史密斯","李白"],
+  ENFP:["罗宾·威廉姆斯","马克·吐温","苏轼"], ENTP:["本杰明·富兰克林","马云","王尔德"],
+  ESTJ:["亨利·福特","杰克·韦尔奇","包拯"], ESFJ:["泰勒·斯威夫特","乔·拜登","雷锋"],
+  ENFJ:["巴拉克·奥巴马","孔子","曼德拉"], ENTJ:["拿破仑","史蒂夫·乔布斯","秦始皇"],
+};
+
+const TYPES = {
+  ISTJ:{name:"检查官",motto:"言出必行，使命必达",color:"#2B4C7E",
+    core:"你重视秩序、规则和承诺，一旦接受任务就会不折不扣地执行到底。你的世界建立在事实和经验之上，不轻信未经验证的理论。是最可靠的类型之一。",
+    strengths:"执行力极强 · 逻辑严密 · 忠诚可靠 · 细节把控力超强",
+    blind:"可能过于墨守成规，对变化和创新持保守态度。在人际中容易忽略他人的情绪需求。",
+    growth:"尝试在已知事实之外探索可能性。当他人表达情绪时，先倾听再给方案。",
+    careers:"审计师 · 项目经理 · 法官 · 质量管理"},
+  ISFJ:{name:"守护者",motto:"默默付出，温暖他人",color:"#3B7A57",
+    core:"你温和、尽责、富有同理心，是团队中最稳定的力量。你总在默默关注他人的需求，重视传统和和谐，愿意为集体利益做出牺牲。",
+    strengths:"耐心细致 · 记忆力强 · 可靠忠诚 · 善于创造安全有序的环境",
+    blind:"过度承担他人责任，难以拒绝请求。长期压抑自己的需求可能导致情绪爆发。",
+    growth:"练习说「不」，认识到照顾好自己才能更好地帮助他人。主动表达自己的需求。",
+    careers:"护士 · 教师 · 人力资源 · 社工 · 行政管理"},
+  INFJ:{name:"提倡者",motto:"洞察本质，追寻意义",color:"#5B4A9E",
+    core:"最稀有的类型。你拥有深刻的洞察力和强烈的理想主义，能看到他人看不到的模式和可能性。内心有坚定的价值体系指引行动。",
+    strengths:"对人性理解深刻 · 富有远见 · 文字表达力强 · 能将抽象愿景转化为行动",
+    blind:"过度追求完美，容易给自己施加太大压力。当现实不符合期望时容易失望。",
+    growth:"接受「足够好」而非「完美」。将宏大愿景拆解为小步骤，避免被理想压垮。",
+    careers:"心理咨询师 · 作家 · 组织发展顾问 · 教育改革者"},
+  INTJ:{name:"建筑师",motto:"万物皆可优化",color:"#1B2838",
+    core:"战略思维的大师。你的大脑天生在构建系统和模型，善于从纷繁信息中抽取核心逻辑。对自己和他人都有极高标准。",
+    strengths:"战略规划能力极强 · 独立思考 · 学习速度快 · 能长期专注复杂目标",
+    blind:"可能显得冷漠或傲慢，对效率的追求有时忽视人情。过度自信可能听不进不同意见。",
+    growth:"刻意练习共情表达。在推进方案前先征询团队感受，效率不是唯一标准。",
+    careers:"战略顾问 · 架构师 · 科学家 · 投资分析师 · 创业者"},
+  ISTP:{name:"鉴赏家",motto:"拆解问题，动手解决",color:"#4A6741",
+    core:"天生的问题解决者。你冷静、务实，善于在压力下保持清醒并快速找到解决方案。喜欢理解事物运作的原理，并亲手验证。",
+    strengths:"危机处理能力强 · 动手能力出色 · 逻辑清晰 · 极具适应力",
+    blind:"对长期规划和人际承诺缺乏耐心，可能给人冷淡或疏离的感觉。",
+    growth:"为重要关系设定主动联络的节奏。尝试做3个月以上的规划并坚持执行。",
+    careers:"工程师 · 飞行员 · 外科医生 · 数据分析师 · 技术专家"},
+  ISFP:{name:"探险家",motto:"活在当下，感受美好",color:"#C17817",
+    core:"安静、温和、内心世界丰富。你对美有敏锐的感知力，重视个人价值观，喜欢按自己的节奏生活。不张扬但内心坚定。",
+    strengths:"审美敏锐 · 善于捕捉细节之美 · 适应力强 · 对他人温柔且不带评判",
+    blind:"回避冲突可能导致问题积累，缺乏长期规划意识。面对批评时容易退缩。",
+    growth:"练习在小事上表达不同意见。每周花15分钟做下周规划，培养前瞻习惯。",
+    careers:"设计师 · 摄影师 · 厨师 · 理疗师 · 音乐家"},
+  INFP:{name:"调停者",motto:"忠于内心，追寻理想",color:"#7B68AE",
+    core:"理想主义者和梦想家。你的内心有丰富而深邃的世界，由强烈的价值观和对人性的信念构成。追求真实和意义，厌恶虚伪。",
+    strengths:"共情能力极强 · 创造力丰富 · 文字感染力强 · 价值观驱动下毅力惊人",
+    blind:"容易过度理想化，在现实面前感到挫败。决策时可能过于犹豫，回避冲突。",
+    growth:"给决策设定截止时间。将理想拆成可执行的小目标，用行动验证而非空想。",
+    careers:"作家 · 心理咨询师 · UX设计师 · 社会工作者"},
+  INTP:{name:"逻辑学家",motto:"理解世界的底层逻辑",color:"#3D5A80",
+    core:"思想的建筑师。你热爱理论和抽象推理，能在看似无关的事物间建立逻辑联系。追求知识的精确性和体系的完整性。",
+    strengths:"分析能力卓越 · 善于发现逻辑漏洞 · 学习能力强 · 对复杂系统有天然理解力",
+    blind:"可能过度沉浸思考而忽视行动，社交和情感表达是弱项。对重复性工作极度缺乏耐心。",
+    growth:"设定「思考-行动」比例，想到70%就开始做。每天主动发起一次非必要的社交互动。",
+    careers:"程序员 · 数学家 · 研究员 · 游戏设计师 · 数据科学家"},
+  ESTP:{name:"企业家",motto:"行动就是答案",color:"#C62828",
+    core:"精力充沛、果断、务实。你是天生的行动派，善于在现场快速评估形势并做出反应。享受冒险和挑战，不喜欢空谈理论。",
+    strengths:"反应迅速 · 社交能力强 · 善于谈判说服 · 能在混乱中找到机会",
+    blind:"可能过于冲动，忽视长远后果。对理论和细节工作缺乏耐心。",
+    growth:"做重大决定前强制等待24小时。学会享受深度阅读和独处思考。",
+    careers:"销售总监 · 企业家 · 急诊医生 · 交易员"},
+  ESFP:{name:"表演者",motto:"人生是一场盛宴",color:"#E65100",
+    core:"热情、慷慨、充满生命力。你是天生的社交明星，善于营造欢乐氛围。活在当下，对生活中的美好事物有强烈感知力。",
+    strengths:"感染力强 · 适应力极佳 · 善于调动团队氛围 · 人际直觉敏锐",
+    blind:"可能回避严肃的长期规划。对枯燥但重要的任务缺乏坚持。",
+    growth:"每月设定一个需要持续30天的小目标并完成它。学会在快乐之外容纳深度。",
+    careers:"演员 · 活动策划 · 公关 · 旅游顾问 · 健身教练"},
+  ENFP:{name:"竞选者",motto:"一切皆有可能",color:"#D4850D",
+    core:"最具感染力的类型之一。你热情洋溢、富有想象力，能看到每个人和每件事的潜力。渴望认可，也慷慨地给予他人鼓励。",
+    strengths:"创意无限 · 沟通能力出色 · 能激励他人 · 困难面前迅速找到替代方案",
+    blind:"兴趣广泛但难以持久专注，容易在多个项目间跳跃。有时难以落地执行。",
+    growth:"用「一进一出」原则管理项目：新增一个前必须完成或放弃一个。",
+    careers:"创意总监 · 记者 · 创业者 · 培训师 · 产品经理"},
+  ENTP:{name:"辩论家",motto:"挑战一切既定规则",color:"#00838F",
+    core:"聪明、机敏、享受智力碰撞。你天生喜欢质疑和辩论，不是为了争胜而是为了探索真理。厌恶陈规，总在寻找更好的方法。",
+    strengths:"思维敏捷 · 视角独特 · 善于看穿问题本质 · 脑力激荡中的最佳搭档",
+    blind:"可能被批评为好辩或不切实际。容易厌烦日常事务和执行层面工作。",
+    growth:"每周选一个自己的想法，写出具体执行计划（含时间、资源、步骤）。完成比完美重要。",
+    careers:"律师 · 产品经理 · 战略顾问 · 发明家 · 风险投资人"},
+  ESTJ:{name:"总经理",motto:"纪律和效率至上",color:"#37474F",
+    core:"天生的组织者和管理者。你重视秩序、效率和明确的规则，善于将混乱的局面理清并推动执行。以身作则，标准极高。",
+    strengths:"领导力强 · 组织能力出色 · 决策果断 · 执行力极高",
+    blind:"可能过于强势，忽视团队成员的情感需求。对非常规方法的包容度有待提高。",
+    growth:"每次给指令前先问一句「你怎么看」。被理解是被领导的前提。",
+    careers:"总经理 · 法官 · 财务总监 · 学校校长"},
+  ESFJ:{name:"执政官",motto:"团结协作，温暖前行",color:"#2E7D32",
+    core:"热情、有爱心、高度重视人际和谐。你是天生的协调者，善于营造温暖的团队氛围。关注他人需求，并愿意为此付出努力。",
+    strengths:"社交能力出色 · 组织能力强 · 忠诚可靠 · 善于调解冲突",
+    blind:"过度在意他人评价，可能为了和谐而回避必要冲突。有时将个人价值与他人认可过度绑定。",
+    growth:"练习区分「他人的期望」和「我的需求」。一个不讨所有人喜欢的决定也可以是对的。",
+    careers:"人力资源总监 · 护士长 · 客户关系经理 · 社区管理者"},
+  ENFJ:{name:"主人公",motto:"成就他人，就是成就自己",color:"#6A1B9A",
+    core:"天生的领导者和教练。你有强烈的驱动力去帮助他人发挥潜能，善于鼓舞和引导团队。对人际动态有敏锐的洞察力。",
+    strengths:"领导力与亲和力兼备 · 演讲沟通能力出色 · 善于发现并培养他人长处",
+    blind:"可能过度牺牲自己的需求来满足他人。对批评比较敏感。容易在情感上过度投入。",
+    growth:"每周留出不为任何人服务的独处时间。接受帮不了所有人，这不是失败。",
+    careers:"培训总监 · 教育家 · 非营利组织领导 · 心理治疗师"},
+  ENTJ:{name:"指挥官",motto:"效率是最高美德",color:"#880E4F",
+    core:"最具决断力的领导者类型。你天生善于制定宏观战略并强力推动执行。思维清晰、意志坚定，能在复杂局面中快速决策。",
+    strengths:"战略思维强大 · 决策果断 · 善于构建和优化系统 · 强大的驱动力和感召力",
+    blind:"可能过于强势和急切，忽视他人感受。高标准有时会转变为过度苛责。",
+    growth:"在追求效率时留出「关系维护」时间。每次批评前先给一个真诚的肯定。",
+    careers:"CEO · 管理顾问 · 企业家 · 投行高管 · 技术总裁"},
+};
+
+const DIM_PAIRS = [["E","I"],["S","N"],["T","F"],["J","P"]];
+const DIM_SHORT = {E:"外向",I:"内向",S:"实感",N:"直觉",T:"思考",F:"情感",J:"判断",P:"感知"};
+const DIM_C = {E:"#4361ee",I:"#7209b7",S:"#2a9d8f",N:"#e76f51",T:"#f77f00",F:"#d62828",J:"#6a4c93",P:"#1982c4"};
+
+function App() {
+  const [phase, setPhase] = useState("intro");
+  const [mode, setMode] = useState("short");
+  const [qi, setQi] = useState(0);
+  const [scores, setScores] = useState({E:0,I:0,S:0,N:0,T:0,F:0,J:0,P:0});
+  const [fade, setFade] = useState("fi");
+
+  const QS = useMemo(() => mode === "short" ? SHORT_IDX.map(i => FULL[i]) : FULL, [mode]);
+  const SECS = mode === "short" ? SEC_SHORT : SEC_FULL;
+
+  const sec = useMemo(() => {
+    for (let i = 0; i < SECS.length; i++) if (qi >= SECS[i].r[0] && qi < SECS[i].r[1]) return {...SECS[i], idx:i};
+    return {...SECS[0], idx:0};
+  }, [qi, SECS]);
+  const isWP = sec.t === "词语偏好";
+
+  const pick = useCallback((ch) => {
+    const d = ch === "A" ? QS[qi][3] : QS[qi][4];
+    setFade("fo");
+    setTimeout(() => {
+      setScores(p => ({...p, [d]: p[d]+1}));
+      if (qi+1 >= QS.length) setPhase("result"); else setQi(qi+1);
+      setFade("fi");
+    }, 200);
+  }, [qi, QS]);
+
+  const mbti = useMemo(() => DIM_PAIRS.map(([a,b]) => scores[a] > scores[b] ? a : b).join(""), [scores]);
+  const restart = () => { setPhase("intro"); setQi(0); setScores({E:0,I:0,S:0,N:0,T:0,F:0,J:0,P:0}); };
+  const start = (m) => { setMode(m); setQi(0); setScores({E:0,I:0,S:0,N:0,T:0,F:0,J:0,P:0}); setPhase("test"); };
+  const pct = Math.round(qi/QS.length*100);
+
+  return (
+    <div style={css.root}>
+      <style>{GCSS}</style>
+
+      {phase === "intro" && (
+        <div style={css.center}>
+          <div style={css.introCard}>
+            <svg width="48" height="48" viewBox="0 0 48 48" style={{marginBottom:16}}>
+              <circle cx="24" cy="24" r="22" fill="none" stroke="#4361ee" strokeWidth="2"/>
+              <circle cx="24" cy="24" r="16" fill="none" stroke="#7209b7" strokeWidth="1.5" opacity=".5"/>
+              <circle cx="24" cy="24" r="4" fill="#4361ee"/>
+              <line x1="24" y1="2" x2="24" y2="8" stroke="#4361ee" strokeWidth="2"/>
+              <line x1="24" y1="40" x2="24" y2="46" stroke="#7209b7" strokeWidth="2"/>
+              <line x1="2" y1="24" x2="8" y2="24" stroke="#2a9d8f" strokeWidth="2"/>
+              <line x1="40" y1="24" x2="46" y2="24" stroke="#e76f51" strokeWidth="2"/>
+            </svg>
+            <h1 style={css.iTitle}>MBTI 职业性格测评</h1>
+            <p style={css.iSub}>专业版 · 含认知功能分析</p>
+
+            <div style={css.pickWrap}>
+              <button className="pickBtn pickMain" onClick={()=>start("short")}>
+                <div style={css.pickTop}>
+                  <span style={css.pickName}>精简版</span>
+                  <span style={css.pickTag}>推荐</span>
+                </div>
+                <div style={css.pickNum}>60 题<span style={css.pickTime}> · 约 10 分钟</span></div>
+                <p style={css.pickDesc}>去除全部重复题项，四维各 15 题严格平衡，题序打散防止规律作答</p>
+              </button>
+              <button className="pickBtn" onClick={()=>start("full")}>
+                <div style={css.pickTop}>
+                  <span style={css.pickName}>完整版</span>
+                </div>
+                <div style={css.pickNum}>93 题<span style={css.pickTime}> · 约 18 分钟</span></div>
+                <p style={css.pickDesc}>原始量表全量题目，含内部一致性校验题</p>
+              </button>
+            </div>
+            <p style={css.iNote}>凭直觉作答 · 不要过度思考 · 没有对错之分</p>
+          </div>
+        </div>
+      )}
+
+      {phase === "test" && (
+        <div style={css.testWrap}>
+          <div style={css.tHead}>
+            <div style={css.tHeadL}>
+              <span style={css.badge}>Part {sec.idx+1}</span>
+              <span style={css.secName}>{sec.t}</span>
+              <span style={css.modeTag}>{mode==="short"?"精简版":"完整版"}</span>
+            </div>
+            <span style={css.qCount}>{qi+1}<span style={{color:"#bbb"}}>/{QS.length}</span></span>
+          </div>
+          <div style={css.pTrack}><div style={{...css.pFill, width:`${pct}%`}}/></div>
+          <p style={css.secSub}>{sec.s}</p>
+
+          <div className={fade} style={css.qCard}>
+            <span style={css.qNum}>Q{qi+1}</span>
+            <p style={isWP ? css.qTxtWP : css.qTxt}>{QS[qi][0]}</p>
+            <div style={css.opts}>
+              {["A","B"].map(ch => (
+                <button key={ch} className="optBtn" onClick={()=>pick(ch)}>
+                  <span style={css.oLabel}>{ch}</span>
+                  <span style={css.oTxt}>{QS[qi][ch==="A"?1:2]}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div style={css.liveWrap}>
+            <p style={css.liveTitle}>维度实时追踪</p>
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              {DIM_PAIRS.map(([a,b]) => {
+                const sa=scores[a], sb=scores[b], tot=sa+sb||1;
+                const pa=Math.round(sa/tot*100);
+                const w = sa>sb?a:(sb>sa?b:null);
+                return (
+                  <div key={a+b} style={css.liveRow}>
+                    <span style={{...css.liveL, fontWeight:w===a?700:400, color:w===a?DIM_C[a]:"#bbb"}}>{DIM_SHORT[a]}</span>
+                    <div style={css.liveBar}>
+                      <div style={{height:"100%",width:`${pa}%`,background:DIM_C[a],borderRadius:"3px 0 0 3px",transition:"width .4s ease"}}/>
+                      <div style={{height:"100%",width:`${100-pa}%`,background:DIM_C[b],borderRadius:"0 3px 3px 0",transition:"width .4s ease"}}/>
+                    </div>
+                    <span style={{...css.liveR, fontWeight:w===b?700:400, color:w===b?DIM_C[b]:"#bbb"}}>{DIM_SHORT[b]}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {phase === "result" && <ResultPage type={mbti} scores={scores} mode={mode} total={QS.length} onRestart={restart}/>}
+    </div>
+  );
+}
+
+function ResultPage({type, scores, mode, total, onRestart}) {
+  const info = TYPES[type], stack = STACKS[type], famous = FAMOUS[type];
+  if(!info) return null;
+  return (
+    <div style={css.resWrap} className="fi">
+      <div style={{...css.resHero, borderTop:`4px solid ${info.color}`}}>
+        <span style={css.resEye}>YOUR PERSONALITY TYPE</span>
+        <div style={{...css.resCode, color:info.color}}>{type}</div>
+        <div style={css.resNameRow}>
+          <span style={css.resName}>{info.name}</span>
+          <span style={{color:"#ddd"}}>·</span>
+          <span style={css.resMotto}>{info.motto}</span>
+        </div>
+        <div style={css.resMeta}>{mode==="short"?"精简版":"完整版"} · {total} 题</div>
+      </div>
+
+      <div style={css.card}>
+        <h3 style={css.cardH}>人格钻石图</h3>
+        <Diamond scores={scores} c={info.color}/>
+      </div>
+
+      <div style={css.card}>
+        <h3 style={css.cardH}>维度分析</h3>
+        {DIM_PAIRS.map(([a,b]) => {
+          const sa=scores[a],sb=scores[b],tot=sa+sb||1,pa=Math.round(sa/tot*100);
+          const w = sa>sb?a:b;
+          return (
+            <div key={a+b} style={{marginBottom:18}}>
+              <div style={css.bLabels}>
+                <span style={{fontWeight:w===a?700:400,color:w===a?DIM_C[a]:"#999",fontSize:13}}>{DIM_SHORT[a]}({a}) <small>{sa}</small></span>
+                <span style={{fontWeight:w===b?700:400,color:w===b?DIM_C[b]:"#999",fontSize:13}}><small>{sb}</small> ({b}){DIM_SHORT[b]}</span>
+              </div>
+              <div style={css.bTrack}>
+                <div style={{height:"100%",width:`${pa}%`,background:DIM_C[a],borderRadius:"4px 0 0 4px",transition:"width .6s"}}/>
+                <div style={{height:"100%",width:`${100-pa}%`,background:DIM_C[b],borderRadius:"0 4px 4px 0",transition:"width .6s"}}/>
+              </div>
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#aaa",marginTop:3}}>
+                <span>{pa}%</span><span>{100-pa}%</span>
+              </div>
+            </div>
+          );
+        })}
+        <p style={{fontSize:12,color:"#aaa",marginTop:8}}>* 同分时按 MBTI 惯例取 I / N / F / P</p>
+      </div>
+
+      <div style={css.card}>
+        <h3 style={css.cardH}>性格画像</h3>
+        <p style={css.descP}>{info.core}</p>
+        <div style={css.tagRow}>
+          {info.strengths.split(" · ").map((s,i)=><span key={i} style={{...css.tag,borderColor:info.color,color:info.color}}>{s}</span>)}
+        </div>
+      </div>
+
+      <div style={css.card}>
+        <h3 style={css.cardH}>认知功能栈</h3>
+        <p style={css.fnIntro}>认知功能是 MBTI 的深层机制——四个字母背后，是八个认知功能的优先级排列。它决定了你如何获取信息、如何做出判断。</p>
+        {stack.map((fn,i)=>(
+          <div key={fn} style={css.fnRow}>
+            <div style={{...css.fnBadge, background:FN_COLORS[i]}}>{["①","②","③","④"][i]}</div>
+            <div style={{flex:1}}>
+              <div style={css.fnHead}>
+                <strong style={{color:FN_COLORS[i]}}>{fn}</strong>
+                <span style={{fontSize:13,color:"#666"}}>{FN_NAMES[fn]}</span>
+                <span style={{fontSize:11,color:"#aaa",marginLeft:"auto"}}>{FN_ROLES[i]}</span>
+              </div>
+              <p style={{fontSize:13,lineHeight:1.6,color:"#777"}}>{FN_DESC[fn]}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div style={css.card}>
+        <h3 style={css.cardH}>盲区与成长</h3>
+        <div style={{display:"flex",gap:14,flexWrap:"wrap"}}>
+          <div style={css.splitBox}>
+            <span style={{fontSize:20,display:"block",marginBottom:6,color:"#e76f51"}}>⚠</span>
+            <h4 style={css.splitH}>盲区</h4>
+            <p style={css.splitP}>{info.blind}</p>
+          </div>
+          <div style={css.splitBox}>
+            <span style={{fontSize:20,display:"block",marginBottom:6,color:"#2a9d8f"}}>↑</span>
+            <h4 style={css.splitH}>成长方向</h4>
+            <p style={css.splitP}>{info.growth}</p>
+          </div>
+        </div>
+      </div>
+
+      <div style={css.card}>
+        <h3 style={css.cardH}>同类型名人</h3>
+        <div style={{display:"flex",flexWrap:"wrap",gap:10}}>
+          {famous.map((f,i)=>(
+            <div key={i} style={css.famChip}><span style={{width:8,height:8,borderRadius:"50%",background:info.color}}/>{f}</div>
+          ))}
+        </div>
+        <p style={{fontSize:12,color:"#aaa",marginTop:10}}>* 类型归属基于公开行为分析，仅供参考</p>
+      </div>
+
+      <div style={css.card}>
+        <h3 style={css.cardH}>适合职业方向</h3>
+        <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+          {info.careers.split(" · ").map((c,i)=><span key={i} style={css.carChip}>{c}</span>)}
+        </div>
+      </div>
+
+      <button className="mainBtn" onClick={onRestart} style={{display:"block",margin:"24px auto 48px"}}>重新测评</button>
+    </div>
+  );
+}
+
+function Diamond({scores, c}) {
+  const cx=140, cy=130, r=90;
+  const v = DIM_PAIRS.map(([a,b]) => { const t=scores[a]+scores[b]||1; return (scores[a]-scores[b])/t; });
+  const dirs = [[0,-1],[1,0],[0,1],[-1,0]];
+  const pts = dirs.map(([dx,dy],i)=>{ const m=15+Math.abs(v[i])*r; return [cx+dx*m, cy+dy*m]; });
+  const labels = [
+    {x:cx, y:cy-r-18, t:v[0]>=0?"外向 E":"内向 I", c:v[0]>=0?DIM_C.E:DIM_C.I},
+    {x:cx+r+12, y:cy+4, t:v[1]>=0?"实感 S":"直觉 N", c:v[1]>=0?DIM_C.S:DIM_C.N, a:"start"},
+    {x:cx, y:cy+r+24, t:v[2]>=0?"思考 T":"情感 F", c:v[2]>=0?DIM_C.T:DIM_C.F},
+    {x:cx-r-12, y:cy+4, t:v[3]>=0?"判断 J":"感知 P", c:v[3]>=0?DIM_C.J:DIM_C.P, a:"end"},
+  ];
+  const pos = [{x:cx,y:cy-r+18},{x:cx+r-24,y:cy+4},{x:cx,y:cy+r-10},{x:cx-r+24,y:cy+4}];
+  return (
+    <div style={{display:"flex",justifyContent:"center",padding:"8px 0"}}>
+      <svg width="280" height="275" viewBox="0 0 280 270">
+        {[0.33,0.66,1].map(s=>(
+          <polygon key={s} points={dirs.map(([dx,dy])=>`${cx+dx*r*s},${cy+dy*r*s}`).join(" ")} fill="none" stroke="#e8e8ed" strokeWidth="1"/>
+        ))}
+        {dirs.map(([dx,dy],i)=><line key={i} x1={cx} y1={cy} x2={cx+dx*r} y2={cy+dy*r} stroke="#e8e8ed" strokeWidth="1"/>)}
+        <polygon points={pts.map(p=>p.join(",")).join(" ")} fill={c} fillOpacity="0.12" stroke={c} strokeWidth="2.5"/>
+        {pts.map((p,i)=><circle key={i} cx={p[0]} cy={p[1]} r="5" fill={c}/>)}
+        {labels.map((l,i)=><text key={i} x={l.x} y={l.y} textAnchor={l.a||"middle"} fill={l.c} style={{fontSize:13,fontWeight:700,fontFamily:"inherit"}}>{l.t}</text>)}
+        {DIM_PAIRS.map(([a,b],i)=>{
+          const t=scores[a]+scores[b]||1;
+          const p=Math.round(Math.max(scores[a],scores[b])/t*100);
+          return <text key={i} x={pos[i].x} y={pos[i].y} textAnchor="middle" fill="#999" style={{fontSize:11,fontFamily:"inherit"}}>{p}%</text>;
+        })}
+      </svg>
+    </div>
+  );
+}
+
+const GCSS = `
+*{box-sizing:border-box;margin:0;padding:0}
+@keyframes fadeIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeOut{from{opacity:1}to{opacity:0;transform:translateY(-8px)}}
+.fi{animation:fadeIn .35s ease forwards}
+.fo{animation:fadeOut .18s ease forwards}
+.mainBtn{background:#4361ee;color:#fff;border:none;border-radius:12px;padding:15px 52px;font-size:16px;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit}
+.mainBtn:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(67,97,238,.3)}
+.optBtn{display:flex;align-items:center;gap:16px;background:#fff;border:1.5px solid #e4e4ea;border-radius:14px;padding:18px 22px;cursor:pointer;transition:all .2s;text-align:left;width:100%;font-size:15px;font-family:inherit}
+.optBtn:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.08);border-color:#4361ee}
+.optBtn:active{transform:translateY(0)}
+.pickBtn{width:100%;text-align:left;background:#fff;border:1.5px solid #e4e4ea;border-radius:14px;padding:18px 20px;cursor:pointer;transition:all .2s;font-family:inherit}
+.pickBtn:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.08);border-color:#4361ee}
+.pickMain{border-color:#4361ee;background:#fafbff}
+`;
+
+const css = {
+  root:{fontFamily:"-apple-system,'SF Pro Text','Noto Sans SC','PingFang SC',sans-serif",minHeight:"100vh",background:"#f5f5f7",color:"#1d1d1f"},
+  center:{display:"flex",justifyContent:"center",alignItems:"center",minHeight:"100vh",padding:20},
+  introCard:{background:"#fff",borderRadius:20,padding:"40px 32px",maxWidth:440,width:"100%",textAlign:"center",boxShadow:"0 4px 24px rgba(0,0,0,.06)"},
+  iTitle:{fontSize:23,fontWeight:700,letterSpacing:1,marginBottom:6},
+  iSub:{fontSize:12,color:"#999",letterSpacing:3,marginBottom:24,textTransform:"uppercase"},
+  pickWrap:{display:"flex",flexDirection:"column",gap:12,marginBottom:20},
+  pickTop:{display:"flex",alignItems:"center",gap:8,marginBottom:4},
+  pickName:{fontSize:16,fontWeight:700,color:"#1d1d1f"},
+  pickTag:{fontSize:10,fontWeight:700,color:"#fff",background:"#4361ee",borderRadius:4,padding:"2px 7px",letterSpacing:1},
+  pickNum:{fontSize:14,fontWeight:600,color:"#4361ee",marginBottom:6},
+  pickTime:{fontSize:13,fontWeight:400,color:"#999"},
+  pickDesc:{fontSize:12.5,lineHeight:1.6,color:"#888"},
+  iNote:{fontSize:12,color:"#bbb",letterSpacing:1},
+  testWrap:{maxWidth:540,margin:"0 auto",padding:"24px 20px",minHeight:"100vh"},
+  tHead:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8},
+  tHeadL:{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"},
+  badge:{fontSize:11,fontWeight:700,color:"#4361ee",background:"#eef0ff",borderRadius:6,padding:"3px 10px",letterSpacing:1},
+  secName:{fontSize:14,fontWeight:500,color:"#666"},
+  modeTag:{fontSize:10,color:"#bbb",border:"1px solid #e8e8ed",borderRadius:4,padding:"1px 6px"},
+  qCount:{fontSize:15,fontWeight:700,color:"#333",fontVariantNumeric:"tabular-nums"},
+  pTrack:{height:4,background:"#e8e8ed",borderRadius:2,overflow:"hidden",marginBottom:6},
+  pFill:{height:"100%",background:"linear-gradient(90deg,#4361ee,#7209b7)",borderRadius:2,transition:"width .35s ease"},
+  secSub:{fontSize:13,color:"#aaa",marginBottom:28,lineHeight:1.5},
+  qCard:{display:"flex",flexDirection:"column",alignItems:"center"},
+  qNum:{fontSize:12,fontWeight:700,color:"#4361ee",letterSpacing:3,marginBottom:10},
+  qTxt:{fontSize:18,fontWeight:500,lineHeight:1.65,textAlign:"center",marginBottom:28,padding:"0 4px",minHeight:50},
+  qTxtWP:{fontSize:16,lineHeight:1.6,textAlign:"center",marginBottom:28,color:"#555",letterSpacing:3},
+  opts:{display:"flex",flexDirection:"column",gap:12,width:"100%"},
+  oLabel:{flexShrink:0,width:32,height:32,borderRadius:"50%",background:"#f0f0f5",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:14,color:"#4361ee"},
+  oTxt:{flex:1,lineHeight:1.5,color:"#333"},
+  liveWrap:{marginTop:36,background:"#fff",borderRadius:14,padding:"18px 20px",boxShadow:"0 2px 10px rgba(0,0,0,.04)"},
+  liveTitle:{fontSize:11,fontWeight:600,color:"#bbb",letterSpacing:3,textAlign:"center",marginBottom:14,textTransform:"uppercase"},
+  liveRow:{display:"flex",alignItems:"center",gap:10},
+  liveL:{width:32,fontSize:12,textAlign:"right",transition:"all .3s"},
+  liveR:{width:32,fontSize:12,textAlign:"left",transition:"all .3s"},
+  liveBar:{flex:1,display:"flex",height:6,borderRadius:3,overflow:"hidden",gap:1,background:"#f0f0f5"},
+  resWrap:{maxWidth:560,margin:"0 auto",padding:"28px 20px"},
+  resHero:{background:"#fff",borderRadius:16,padding:"36px 28px 28px",marginBottom:14,boxShadow:"0 4px 20px rgba(0,0,0,.06)",textAlign:"center"},
+  resEye:{fontSize:11,letterSpacing:5,color:"#aaa"},
+  resCode:{fontSize:52,fontWeight:800,letterSpacing:10,margin:"8px 0"},
+  resNameRow:{display:"flex",justifyContent:"center",alignItems:"center",gap:10,flexWrap:"wrap"},
+  resName:{fontSize:20,fontWeight:600,color:"#333"},
+  resMotto:{fontSize:15,color:"#888",fontStyle:"italic"},
+  resMeta:{fontSize:11,color:"#ccc",marginTop:12,letterSpacing:1},
+  card:{background:"#fff",borderRadius:14,padding:"24px 22px",marginBottom:14,boxShadow:"0 2px 10px rgba(0,0,0,.04)"},
+  cardH:{fontSize:15,fontWeight:700,marginBottom:16,color:"#333",letterSpacing:1},
+  descP:{fontSize:14.5,lineHeight:1.8,color:"#444",marginBottom:12},
+  tagRow:{display:"flex",flexWrap:"wrap",gap:8},
+  tag:{fontSize:12,padding:"4px 12px",borderRadius:20,border:"1.5px solid"},
+  bLabels:{display:"flex",justifyContent:"space-between",marginBottom:5},
+  bTrack:{display:"flex",height:8,borderRadius:4,overflow:"hidden",gap:1},
+  fnIntro:{fontSize:13,color:"#888",lineHeight:1.7,marginBottom:18},
+  fnRow:{display:"flex",gap:14,marginBottom:16,alignItems:"flex-start"},
+  fnBadge:{width:26,height:26,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:13,fontWeight:700,flexShrink:0,marginTop:2},
+  fnHead:{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:4},
+  splitBox:{flex:"1 1 200px",background:"#fafafa",borderRadius:10,padding:"16px 18px"},
+  splitH:{fontSize:14,fontWeight:600,marginBottom:8,color:"#333"},
+  splitP:{fontSize:13.5,lineHeight:1.7,color:"#555"},
+  famChip:{display:"flex",alignItems:"center",gap:6,fontSize:14,color:"#444",background:"#f8f8fa",borderRadius:10,padding:"8px 16px"},
+  carChip:{fontSize:13,color:"#555",background:"#f0f0f5",borderRadius:8,padding:"6px 14px"},
+};
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
