@@ -1,0 +1,109 @@
+---
+const tools = [
+  { href: '/tools/bazi-calculator/', title: '八字排盘', desc: '四柱、五行与大运分析', icon: '八' },
+  { href: '/tools/enneagram-pro/', title: '九型人格', desc: '探索核心动机与行为模式', icon: '九' },
+  { href: '/tools/mbti-enneagram-fusion/', title: 'MBTI × 九型', desc: '两套人格模型的融合测试', icon: '融' },
+  { href: '/tools/mbti-simulator/', title: 'MBTI 测试', desc: '认知偏好与人格类型分析', icon: 'M' },
+  { href: '/tools/focus-timer/', title: '专注计时器', desc: '番茄钟、标签与专注记录', icon: '时' },
+  { href: '/tools/quote-wheel/', title: '名言转盘', desc: '发现、竞猜与收藏名言', icon: '言' },
+  { href: '/tools/wuxing-explainer/', title: '五行关系图', desc: '天干地支与相生相克可视化', icon: '五' },
+  { href: '/tools/zodiac-compatibility-chart/', title: '生肖关系盘', desc: '十二生肖关系互动图谱', icon: '肖' },
+];
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#f7f5ef" />
+    <title>Song Chaoyang · 模拟器与工具</title>
+    <meta name="description" content="Song Chaoyang 的互动模拟器与实用工具合集" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  </head>
+  <body>
+    <header>
+      <a class="brand" href="/">SONG CHAOYANG</a>
+      <a class="fc-button" href="/fuck-claude/">Fuck Claude ↗</a>
+    </header>
+
+    <main>
+      <section class="hero">
+        <p class="eyebrow">PLAYGROUND · 2026</p>
+        <h1>把好奇心<br />做成工具。</h1>
+        <p class="intro">人格探索、传统文化、学习效率与灵感发现。选择一个模拟器，直接开始。</p>
+      </section>
+
+      <section class="tools" aria-labelledby="tools-title">
+        <div class="section-head">
+          <h2 id="tools-title">全部模拟器</h2>
+          <span>{tools.length} TOOLS</span>
+        </div>
+        <div class="grid">
+          {tools.map((tool, index) => (
+            <a class="card" href={tool.href}>
+              <span class="number">{String(index + 1).padStart(2, '0')}</span>
+              <span class="icon" aria-hidden="true">{tool.icon}</span>
+              <span class="copy">
+                <strong>{tool.title}</strong>
+                <small>{tool.desc}</small>
+              </span>
+              <span class="arrow" aria-hidden="true">↗</span>
+            </a>
+          ))}
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <span>© 2026 Song Chaoyang</span>
+      <a href="https://github.com/Elena176396" rel="noopener noreferrer">GitHub ↗</a>
+    </footer>
+  </body>
+</html>
+
+<style>
+  :global(*) { box-sizing: border-box; }
+  :global(body) {
+    margin: 0;
+    color: #171714;
+    background:
+      radial-gradient(circle at 88% 10%, rgba(224, 119, 82, .16), transparent 28rem),
+      #f7f5ef;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif;
+  }
+  header, main, footer { width: min(1160px, calc(100% - 40px)); margin-inline: auto; }
+  header { height: 84px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #d9d5ca; }
+  .brand { color: inherit; text-decoration: none; font-size: 13px; font-weight: 850; letter-spacing: .13em; }
+  .fc-button { color: #fff; background: #191916; text-decoration: none; padding: 11px 17px; border-radius: 999px; font-size: 13px; font-weight: 750; }
+  .hero { padding: clamp(72px, 12vw, 150px) 0 90px; }
+  .eyebrow { margin: 0 0 28px; color: #d06c49; font-size: 12px; font-weight: 800; letter-spacing: .18em; }
+  h1 { max-width: 900px; margin: 0; font-size: clamp(58px, 11vw, 126px); line-height: .88; letter-spacing: -.075em; font-weight: 820; }
+  .intro { max-width: 570px; margin: 38px 0 0; color: #646158; font-size: clamp(17px, 2.4vw, 22px); line-height: 1.7; }
+  .tools { padding: 0 0 100px; }
+  .section-head { display: flex; justify-content: space-between; align-items: end; margin-bottom: 20px; }
+  h2 { margin: 0; font-size: 24px; letter-spacing: -.03em; }
+  .section-head span { color: #8b877d; font: 700 11px ui-monospace, monospace; letter-spacing: .15em; }
+  .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-top: 1px solid #cbc6b9; }
+  .card { position: relative; min-height: 190px; padding: 24px; color: inherit; text-decoration: none; border-bottom: 1px solid #cbc6b9; display: grid; grid-template-columns: 36px 64px 1fr 30px; gap: 18px; align-items: center; transition: background .2s, transform .2s; }
+  .card:nth-child(odd) { border-right: 1px solid #cbc6b9; }
+  .card:hover { background: rgba(255,255,255,.68); transform: translateY(-2px); }
+  .number { align-self: start; color: #999488; font: 700 11px ui-monospace, monospace; }
+  .icon { width: 62px; height: 62px; display: grid; place-items: center; border: 1px solid #bcb6a9; border-radius: 20px; font-family: Georgia, "Songti SC", serif; font-size: 27px; }
+  .copy { display: flex; flex-direction: column; gap: 10px; }
+  .copy strong { font-size: clamp(20px, 2.6vw, 29px); letter-spacing: -.04em; }
+  .copy small { color: #777268; font-size: 14px; line-height: 1.5; }
+  .arrow { font-size: 21px; transition: transform .2s; }
+  .card:hover .arrow { transform: translate(3px, -3px); }
+  footer { padding: 28px 0 46px; border-top: 1px solid #d9d5ca; display: flex; justify-content: space-between; color: #777268; font-size: 13px; }
+  footer a { color: inherit; }
+  @media (max-width: 760px) {
+    header, main, footer { width: min(100% - 28px, 1160px); }
+    .hero { padding: 72px 0 64px; }
+    h1 { font-size: clamp(54px, 19vw, 84px); }
+    .grid { grid-template-columns: 1fr; }
+    .card:nth-child(odd) { border-right: 0; }
+    .card { min-height: 150px; padding: 20px 8px; grid-template-columns: 24px 54px 1fr 22px; gap: 12px; }
+    .icon { width: 52px; height: 52px; border-radius: 16px; font-size: 23px; }
+  }
+</style>
