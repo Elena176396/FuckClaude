@@ -1,0 +1,503 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#faf9f5" />
+  <title>九型人格测试 · Song Chaoyang</title>
+  <style>
+    html,body,#root{min-height:100%;margin:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;background:#faf9f5}
+    .site-back{position:fixed;z-index:9999;left:14px;top:14px;padding:8px 12px;border-radius:999px;background:rgba(20,20,20,.82);color:#fff;text-decoration:none;font-size:13px;backdrop-filter:blur(8px)}
+  </style>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+  <a class="site-back" href="/tools/">← 工具中心</a>
+  <div id="root"></div>
+  <script>
+    window.storage = {
+      async get(key){ const value=localStorage.getItem(key); return value==null?null:{value}; },
+      async set(key,value){ localStorage.setItem(key,value); return true; }
+    };
+  </script>
+  <script type="text/babel" data-presets="env,react">
+    const { useState, useEffect, useRef, useMemo, useCallback } = React;
+
+/* ═══════ 九型 72题 · 36配对×2 ═══════ */
+const Q = [
+["在团队里，我更容易指出哪里做得不对、标准还能更高","在团队里，我更容易察觉谁需要帮助、然后主动去支持",1,2],
+["把事情做对，比做成更重要","把事情做成，比做对更重要",1,3],
+["我努力修正自己不合规范的部分","我珍视自己与众不同的部分",1,4],
+["看到错误，我想的是怎么改正它","看到错误，我想的是它为什么会发生",1,5],
+["我担心的是自己做得不够好","我担心的是有情况没准备到",1,6],
+["我先想这件事该不该做","我先想这件事有不有趣",1,7],
+["我用标准去要求别人","我用气势去压住场面",1,8],
+["我很难对不合理的事视而不见","很多事没必要计较，过去就过去了",1,9],
+["我希望被人需要","我希望被人羡慕",2,3],
+["我更关注别人的情绪","我更关注自己的情绪",2,4],
+["我愿意为别人腾出时间和精力","我需要守住自己的时间和精力",2,5],
+["我主动帮别人解决麻烦","我提前提醒别人可能的风险",2,6],
+["聚会上我会去照顾没被照顾到的人","聚会上我会去带动气氛找乐子",2,7],
+["我靠温柔获得影响力","我靠强势获得影响力",2,8],
+["我会主动介入别人的困难","我不太想被卷进别人的事",2,9],
+["我努力成为出色的人","我努力成为真实的人",3,4],
+["我在意别人怎么看我","别人怎么看我没那么重要",3,5],
+["我相信只要拼就能赢","我总在想万一失败怎么办",3,6],
+["我追求的是成功","我追求的是尽兴",3,7],
+["我要赢，而且要赢得漂亮","我要赢，方式不重要",3,8],
+["闲着会让我焦虑","忙碌会让我疲惫",3,9],
+["我沉浸在感受里","我沉浸在思考里",4,5],
+["我常觉得自己缺了点什么","我常觉得外面有什么要出事",4,6],
+["痛苦会让我更深刻","痛苦我会绕开",4,7],
+["受伤时我退回自己的世界","受伤时我会反击回去",4,8],
+["我的情绪起伏很大","我的情绪一直比较平",4,9],
+["遇到问题我先自己弄明白","遇到问题我先找人确认",5,6],
+["我喜欢把一件事挖到底","我喜欢广泛尝试很多事",5,7],
+["我先观察，尽量不下场","我直接下场，边打边看",5,8],
+["我独处是为了钻研","我独处是为了清静",5,9],
+["做计划是为了防止出错","做计划是为了不错过好玩的",6,7],
+["面对威胁我先评估","面对威胁我先反击",6,8],
+["我很警觉，总在扫描周围","我比较放松，很多事没注意到",6,9],
+["被困住比被打压更难受","被打压比被困住更难受",7,8],
+["我闲不住，总得找点事做","我很能闲着，什么都不做也挺好",7,9],
+["有冲突就摆到台面上解决","有冲突我尽量绕过去",8,9],
+["我对自己的要求比对别人更严","我很难拒绝别人的请求",1,2],
+["我在意结果是否达到标准","我在意结果是否被人看见",1,3],
+["情绪应该被管理好","情绪应该被表达出来",1,4],
+["我需要世界更有秩序","我需要世界少来打扰我",1,5],
+["规则本身就是对的","规则让人有安全感",1,6],
+["我倾向于把一件事做完再休息","我倾向于同时开着好几件有意思的事",1,7],
+["生气时我会压着不发作","生气时我会直接表现出来",1,8],
+["我心里有一张「该做的事」清单","我更愿意顺其自然",1,9],
+["帮到别人让我觉得有价值","赢得认可让我觉得有价值",2,3],
+["我靠给予来靠近别人","我靠独特来吸引别人",2,4],
+["亲近让我觉得充实","亲近让我觉得消耗",2,5],
+["我付出是希望被喜爱","我付出是希望不被抛下",2,6],
+["我的注意力在别人身上","我的注意力在下一件有意思的事上",2,7],
+["被人需要让我安心","被人依赖是我的责任，我罩着他们",2,8],
+["我很在意别人是否喜欢我","我更在意大家是否相安无事",2,9],
+["我会调整自己去适应场合","我拒绝为了场合改变自己",3,4],
+["我把能力展示出来","我把能力藏起来",3,5],
+["我推着自己往前冲","我先确认后路再动",3,6],
+["我能为目标放弃享乐","我很难为目标放弃享乐",3,7],
+["我在意的是形象","我在意的是实权",3,8],
+["我很清楚自己想要什么","我常常说不清自己到底想要什么",3,9],
+["我的独特在于我的体验","我的独特在于我懂的东西",4,5],
+["我信自己的直觉感受","我信反复验证过的东西",4,6],
+["我愿意待在低落的情绪里","我会立刻找别的事让自己好起来",4,7],
+["我表达的是感受","我表达的是立场",4,8],
+["我希望被看见我的特别","我不太希望被特别关注",4,9],
+["我靠掌握知识让自己安心","我靠身边有人支持让自己安心",5,6],
+["过多的刺激让我疲惫","无聊会让我难受",5,7],
+["我用信息掌握局面","我用行动掌握局面",5,8],
+["我把自己从情境中抽离出来","我把自己融进环境里",5,9],
+["我先看风险","我先看机会",6,7],
+["我需要有可以依靠的人","我不想依靠任何人",6,8],
+["我犹豫是因为怕选错","我犹豫是因为怎样都行",6,9],
+["我用兴奋填满生活","我用掌控填满生活",7,8],
+["我回避痛苦的方式是往前冲","我回避冲突的方式是不动",7,9],
+["我的存在感很强","我的存在感很淡",8,9],
+];
+
+const SQ = [
+["我更在意自己的生活是否安稳、有保障","我更在意自己在群体里处于什么位置","sp","so"],
+["钱、健康、体力，是我经常盘算的事","谁和谁的关系、圈子怎么运作，是我经常留意的事","sp","so"],
+["我会先照顾好自己的那个窝","我会先确认自己被这个群体接纳了","sp","so"],
+["压力大的时候我倾向于囤积资源","压力大的时候我倾向于确认自己还被需要","sp","so"],
+["我享受在群体中被认可的感觉","我享受和某个人之间那种强烈的连接","so","sx"],
+["我在意的是「大家」怎么看我","我在意的是「那个人」怎么看我","so","sx"],
+["我愿意为一个集体投入","我愿意为某一个人投入","so","sx"],
+["广泛的人脉让我安心","一段够深的关系让我安心","so","sx"],
+["我追求的是稳定和舒适","我追求的是强烈和鲜活","sp","sx"],
+["我倾向于保存能量","我倾向于燃烧能量","sp","sx"],
+["生活里没有大风浪是最好的","生活里没有热度会让我觉得死气沉沉","sp","sx"],
+["我先确保自己什么都不缺","我先确保自己没错过那个让我心动的人或事","sp","sx"],
+];
+
+/* ═══════ 型号数据 ═══════ */
+const T = {
+1:{n:"完美型",a:"改革者",c:"#4A7C59",fear:"被谴责、自己不够正直",desire:"事事正确、无可指摘",motive:"消除错误，让世界符合它应有的样子",focus:"哪里不对、哪里还能更好",def:"反向形成",up:7,down:4,upT:"放下拘谨，能自嘲、有创意、肯做新尝试",downT:"情绪化、自我批判、忧郁自怜",
+ core:"你的内心有一张列满「应该」与「不应该」的清单，而这张清单对自己比对别人更严。你很难单纯地玩乐，因为总觉得还有哪里没做到位。你是优秀的组织者，能盯住每一个错误并把事情推向正确。"},
+2:{n:"助人型",a:"给予者",c:"#C1666B",fear:"不被爱、被认为不值得爱",desire:"被关怀、被需要",motive:"通过被需要，来确认自己值得被爱",focus:"别人需要什么",def:"压抑",up:4,down:8,upT:"为自己的心愿坚持，承认自己也有需求",downT:"强势任性，把主意强加于人",
+ core:"你对别人的需要有近乎本能的敏感，在最被人需要的时候感到最踏实。但你很难承认自己也有需要，更难开口求助——于是你无意识地通过给予，去换取那份你不敢直接索要的爱。"},
+3:{n:"成就型",a:"实干者",c:"#D4A017",fear:"失败、能力不被认可",desire:"被赏识、被认同",motive:"通过拿到成果，来证明自己有价值",focus:"目标，以及别人的评价",def:"认同",up:6,down:9,upT:"有涵养有实力，稳扎稳打不操之过急",downT:"一蹶不振，无主见，意念多而不专注",
+ core:"你是精力超强的目标机器，能顺应不同场合切换出最有效的那个自己。你追求的不只是成功，是被看见的成功。代价是，你和自己真实的感受之间，隔着一层你亲手做的形象。"},
+4:{n:"感觉型",a:"个人主义者",c:"#8E6C9E",fear:"平庸、没有独特的身份",desire:"深入了解自我、活得真实",motive:"找到那个缺失的、能让自己完整的东西",focus:"缺了什么、别人有而我没有的",def:"内摄",up:1,down:2,upT:"冷静理性，做事有原则不感情用事",downT:"痴缠任性，占有欲强，反复无常",
+ core:"你活在生命中某种重要事物的感觉里，总觉得有一块缺失的东西——找到它，你才完整。你被深刻的情绪吸引，也因此能真正陪伴处在痛苦中的人。别人觉得你难懂，你觉得别人太浅。"},
+5:{n:"思想型",a:"观察者",c:"#3D6E8C",fear:"被掏空、无能应付",desire:"胜任、彻底理解",motive:"囤积理解与能量，避免自己被掏空",focus:"我懂不懂、我够不够用",def:"隔离",up:8,down:7,upT:"从旁观走向行动，敢于下场使用自己的力量",downT:"心浮气躁，注意力分散，逃避现实",
+ core:"你带着距离体验生命，认为观察胜于参与。你需要大量属于自己的时间，否则会枯竭。知识和信息对你不只是兴趣，是安全感——你要先确信自己够用，才敢下场。"},
+6:{n:"忠诚型",a:"怀疑论者",c:"#7A6C5D",fear:"失去支持、孤立无援",desire:"安全、有依靠",motive:"消除不确定，找到真正靠得住的东西",focus:"哪里可能出问题",def:"投射",up:9,down:3,upT:"放松下来，信任自己与他人，内心安定",downT:"急躁竞争，用忙碌掩盖焦虑",
+ core:"你的大脑自动扫描风险，还没出事就已经想好几套预案。你渴望有可以依靠的东西，又忍不住怀疑它靠不靠得住。矛盾的是，真出事的时候，你往往是最冷静、最扛得住的那个。"},
+7:{n:"活跃型",a:"享乐者",c:"#E08D3C",fear:"被困住、陷入痛苦",desire:"满足、自由、选项敞开",motive:"逃离停滞与匮乏，让所有选项都敞开",focus:"下一件有意思的事",def:"合理化",up:5,down:1,upT:"沉静专注，深入而非广泛，懂得节制",downT:"完美主义，挑剔苛刻，不耐烦",
+ core:"你的头脑不停地生成下一个可能性，因为停下来会让你碰到不想碰的东西。你乐观、有活力、能把任何场合变得有意思——这份轻盈是真的，它同时也是一套非常精巧的回避系统。"},
+8:{n:"领袖型",a:"挑战者",c:"#A43D3D",fear:"被控制、被伤害、示弱",desire:"自主、掌控局面",motive:"掌握控制权，绝不让自己处于弱势",focus:"谁说了算、公不公平",def:"否认",up:2,down:5,upT:"展现柔软和保护欲，把力量用在他人身上",downT:"退缩隔离，多疑，切断与人的连接",
+ core:"你的能量大、边界感强，本能地判断一个场合里谁说了算。你不怕冲突，甚至觉得摆到台面上才痛快。你保护自己人的方式很直接。但柔软对你等同于危险，所以你几乎不让人看到那一面。"},
+9:{n:"和平型",a:"调停者",c:"#6B8E7B",fear:"冲突、失去连接、被撕扯",desire:"内在的平静与和谐",motive:"维持内在的平静，回避一切冲撞",focus:"别人想要什么、怎样才不起争执",def:"麻痹",up:3,down:6,upT:"目标清晰，行动有力，把自己放回中心",downT:"焦虑多疑，被动攻击，反复摇摆",
+ core:"你能自然地看到每一方的道理，也因此很难站定一边。你随和、好相处、能让紧绷的场子松下来。但「什么都行」的另一面是：你常常说不清自己到底想要什么，连自己都问不出答案。"},
+};
+
+const VIR={1:["愤怒","平静","接受世界本来就不完美，而这不是你的失职。"],2:["骄傲","谦卑","承认自己也有需要，被爱不需要先付出。"],3:["虚荣","真实","你的价值不在成果里，停下来时你依然存在。"],4:["嫉妒","平常心","你缺的那块从来不在别处，也从来不需要补上。"],5:["贪婪","无执","资源不是有限的，给出去不会让你被掏空。"],6:["恐惧","勇气","你已经有能力应付，不需要等到完全确定。"],7:["暴食","节制","你要的满足就在这里，不在下一个地方。"],8:["过度","纯真","示弱不等于被吞掉，柔软是另一种力量。"],9:["懒惰","行动","你的存在本身就重要，出现不会破坏和谐。"]};
+
+const LV={
+1:["有原则又能变通，追求卓越但接受不完美，是真正的改革者与道德榜样。","批判挑剔，纠正别人，非黑即白，把「应该」当成唯一标准，情绪压抑。","苛刻偏执，自居审判者，对己对人都残酷，压抑的愤怒会突然爆发。"],
+2:["真心付出而不求回报，能坦然表达自己的需求，付出与接受平衡。","过分热心，需要「被需要」，付出带条件，暗中期待回报却不说破。","操控索取，用付出绑架关系，压抑久了转为怨恨与强势。"],
+3:["自信有能力，成就出于热爱而非表演，是真正能激励他人的榜样。","事事要赢，重视包装，把自我和成绩绑死，失去与真实感受的连接。","不择手段，欺骗与自欺，形象崩塌时整个人崩塌，一蹶不振。"],
+4:["有深度且有创造力，能把独特的感受转化为作品，情绪稳定而不失敏锐。","自怜自恋，觉得自己被误解，沉溺情绪，羡慕别人拥有的东西。","自我毁灭，抑郁孤立，用痛苦确认存在，推开所有人又抱怨没人懂。"],
+5:["博学又能行动，愿意把知识用出去，与人连接的同时守住内在空间。","退缩隔离，囤积知识与能量，用观察代替参与，社交电量极低。","彻底切断，虚无孤僻，对现实失去兴趣，只活在概念里。"],
+6:["忠诚勇敢，能在不确定中做决定，是团队最可信赖的支柱。","焦虑多疑，反复求证，既想依赖权威又怀疑权威，摇摆不定。","偏执恐慌，把假想敌当真，要么彻底服从要么彻底反叛。"],
+7:["快乐且有深度，能专注也能享受，把广博的兴趣变成真本事。","浅尝辄止，逃避不适，同时开太多头，很难把一件事做完。","失控放纵，用刺激麻痹痛苦，冲动或成瘾，逃到无路可逃。"],
+8:["强大且有保护欲，用力量维护正义，敢示弱也敢承担。","强势控制，好斗，把柔软等同于危险，不容许自己被质疑。","专横压迫，报复心强，摧毁一切威胁到自己控制权的东西。"],
+9:["安定有力量，能调和分歧也能坚持立场，真正的和平缔造者。","随和拖延，回避冲突，说不清自己想要什么，用琐事麻痹自己。","彻底麻木，逃避一切，被动攻击，用消失来对抗压力。"]};
+
+const FAM={1:["甘地","孔子","包拯"],2:["德蕾莎修女","宋庆龄","雷锋"],3:["奥普拉·温弗瑞","李鸿章","苏秦"],4:["弗里达·卡罗","张国荣","李清照"],5:["爱因斯坦","陈寅恪","王小波"],6:["伍迪·艾伦","曾国藩","宋江"],7:["罗宾·威廉姆斯","李白","苏轼"],8:["拿破仑","曹操","武则天"],9:["林肯","刘备","老子"]};
+const CAR={1:["质量管理","审计","法律","编辑","教育"],2:["护理","心理咨询","人力资源","客户成功","社会工作"],3:["销售","市场营销","创业","品牌管理","投资"],4:["设计","写作","艺术","心理治疗","影视"],5:["研究","工程","数据科学","学术","技术架构"],6:["风险控制","质检","项目管理","法务","安全"],7:["创意策划","产品","培训","媒体","旅游"],8:["企业管理","谈判","危机处理","创业","诉讼"],9:["调解","咨询","行政","心理咨询","外交"]};
+
+const CEN={
+gut:{n:"腹中心 · 本能",t:[8,9,1],emo:"愤怒",c:"#A43D3D",d:"靠身体和直觉运作，最在意「我的边界在哪、谁在越界」。核心情绪是愤怒，但三个型号处理它的方式完全不同。",w:{8:"向外释放，直接对抗",9:"麻痹掉，假装它不存在",1:"向内压成「应该」，转为自我要求与批判"}},
+heart:{n:"心中心 · 情感",t:[2,3,4],emo:"羞耻",c:"#C1666B",d:"靠关系和形象运作，最在意「我在别人眼里是什么样」。核心情绪是羞耻——一种「我本身不够好」的底噪。",w:{2:"向外转移，通过被人需要来抵消",3:"用成就盖住，忙到没时间感受它",4:"向内吸收，认领它并把它变成身份"}},
+head:{n:"脑中心 · 思维",t:[5,6,7],emo:"恐惧",c:"#3D6E8C",d:"靠分析和预判运作，最在意「我能不能应付即将发生的事」。核心情绪是恐惧。",w:{5:"向内退缩，靠囤积知识和保存能量",6:"在恐惧与反恐惧之间摇摆，边怀疑边求确定",7:"向外逃跑，用新鲜刺激把它盖过去"}}};
+
+const SUB={
+sp:{n:"自保型",en:"Self-Preservation",c:"#7A6C5D",d:"注意力自动扫描的是安全、资源、身体状态、生活是否可持续。你对「够不够用」天然敏感，会先把基本盘搭稳，再谈别的。",s:"务实、有储备意识、危机中最不容易垮",w:"容易过度收缩，把不安全感转成囤积或回避冒险"},
+so:{n:"社交型",en:"Social",c:"#4361ee",d:"注意力自动扫描的是群体、位置、归属、我在这里算什么。你对人际结构有本能的敏感，知道谁和谁是什么关系。",s:"洞察群体动态、善建联盟、有集体意识",w:"容易把自我价值绑在群体评价上，为位置牺牲真实需求"},
+sx:{n:"一对一型",en:"One-to-One",c:"#C1666B",d:"注意力自动扫描的是吸引力、化学反应、强度。你要的不是很多关系，是那一段够深够灼热的。平淡比冲突更难忍受。",s:"投入度极高、有感染力、能把关系推向深处",w:"容易过度聚焦单一对象，忽略更广的生活；强度上瘾"}};
+
+/* ═══════ 主程序 ═══════ */
+function App(){
+const [ph,setPh]=useState("intro");
+const [qi,setQi]=useState(0);
+const [s,setS]=useState({1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0});
+const [ss,setSs]=useState({sp:0,so:0,sx:0});
+const [fade,setFade]=useState("fi");
+
+const TOT=Q.length+SQ.length;
+const inM=qi<Q.length;
+const cur=inM?Q[qi]:SQ[qi-Q.length];
+
+const pick=useCallback((ch)=>{setFade("fo");setTimeout(()=>{
+  const k=ch==="A"?cur[2]:cur[3];
+  if(inM)setS(p=>({...p,[k]:p[k]+1}));else setSs(p=>({...p,[k]:p[k]+1}));
+  if(qi+1>=TOT)setPh("res");else setQi(qi+1);setFade("fi");},180);},[qi,cur,inM,TOT]);
+
+const main=useMemo(()=>{let m=-1,n=1;for(let i=1;i<=9;i++)if(s[i]>m){m=s[i];n=i;}return n;},[s]);
+const wing=useMemo(()=>{const l=main===1?9:main-1,r=main===9?1:main+1;return s[l]>=s[r]?l:r;},[s,main]);
+const inst=useMemo(()=>Object.keys(ss).reduce((a,b)=>ss[a]>=ss[b]?a:b),[ss]);
+const reset=()=>{setPh("intro");setQi(0);setS({1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0});setSs({sp:0,so:0,sx:0});};
+const pct=Math.round(qi/TOT*100);
+
+return(<div style={C.root}><style>{CSS}</style>
+{ph==="intro"&&<div style={C.ctr}><div style={C.iCard}>
+  <Star scores={{1:8,2:8,3:8,4:8,5:8,6:8,7:8,8:8,9:8}} main={0} wing={0} size={104} plain/>
+  <h1 style={C.iT}>九型人格测评</h1>
+  <p style={C.iS}>Enneagram · 专业版</p>
+  <div style={C.iSt}>
+    <div style={C.iB}><b style={C.iN}>72</b><span style={C.iL}>主型题</span></div><div style={C.iD}/>
+    <div style={C.iB}><b style={C.iN}>12</b><span style={C.iL}>本能变体</span></div><div style={C.iD}/>
+    <div style={C.iB}><b style={C.iN}>54</b><span style={C.iL}>细分型号</span></div>
+  </div>
+  <p style={C.iP}>九型测的不是你做什么，是你<b>为什么</b>这样做。同一个行为背后可以有九种完全不同的动机。<br/>共 84 题，约 14 分钟。</p>
+  <button className="mB" onClick={()=>setPh("test")}>开始测评</button>
+  <p style={C.iNo}>选你真实的样子，不是你希望成为的样子</p>
+</div></div>}
+
+{ph==="test"&&<div style={C.tW}>
+  <div style={C.tH}>
+    <span style={{...C.bg,background:inM?"#f0f4f1":"#f2f0f5",color:inM?"#4A7C59":"#7A6C5D"}}>{inM?"第一部分 · 核心型号":"第二部分 · 本能变体"}</span>
+    <span style={C.cnt}>{qi+1}<span style={{color:"#bbb"}}>/{TOT}</span></span>
+  </div>
+  <div style={C.pT}><div style={{...C.pF,width:`${pct}%`,background:inM?"linear-gradient(90deg,#4A7C59,#6B8E7B)":"linear-gradient(90deg,#7A6C5D,#C1666B)"}}/></div>
+  <p style={C.sS}>{inM?"哪句话更像你？看内心真实的驱动，不是外在的行为表现。":"这一部分测的是你的注意力本能地投向哪里。"}</p>
+  <div className={fade} style={C.qC}>
+    <span style={{...C.qN,color:inM?"#4A7C59":"#7A6C5D"}}>Q{qi+1}</span>
+    <div style={C.op}>{["A","B"].map(ch=>(<button key={ch} className="oB" onClick={()=>pick(ch)}>
+      <span style={{...C.oL,color:inM?"#4A7C59":"#7A6C5D"}}>{ch}</span>
+      <span style={C.oT}>{cur[ch==="A"?0:1]}</span></button>))}</div>
+  </div>
+  {inM&&<div style={C.live}><p style={C.lvT}>九芒星实时成形</p>
+    <Star scores={s} main={0} wing={0} size={172} live/></div>}
+  {!inM&&<div style={C.live}><p style={C.lvT}>本能倾向</p>
+    <div style={{display:"flex",gap:10}}>{["sp","so","sx"].map(k=>{
+      const mx=Math.max(...Object.values(ss),1);
+      return(<div key={k} style={C.instCol}>
+        <div style={C.instBarW}><div style={{width:"100%",height:`${ss[k]/mx*100}%`,background:SUB[k].c,borderRadius:"4px 4px 0 0",transition:"height .4s",minHeight:ss[k]?4:0}}/></div>
+        <span style={C.instL}>{SUB[k].n}</span></div>);})}</div></div>}
+</div>}
+
+{ph==="res"&&<Res s={s} ss={ss} main={main} wing={wing} inst={inst} onReset={reset}/>}
+</div>);}
+
+/* ═══════ 九芒星图 ═══════ */
+function Star({scores,main,wing,size=300,live,plain}){
+const cx=150,cy=150,R=112;
+const pos=(n,r)=>{const a=(-90+(n%9)*40)*Math.PI/180;return[cx+r*Math.cos(a),cy+r*Math.sin(a)];};
+const mx=Math.max(...Object.values(scores),1);
+const pts=[1,2,3,4,5,6,7,8,9].map(n=>pos(n,26+(scores[n]/mx)*(R-30)));
+const tri=[3,6,9].map(n=>pos(n,R));
+const hex=[1,4,2,8,5,7].map(n=>pos(n,R));
+const upMap={1:7,7:5,5:8,8:2,2:4,4:1,3:6,6:9,9:3};
+const dnMap={1:4,4:2,2:8,8:5,5:7,7:1,3:9,9:6,6:3};
+return(<svg width="100%" viewBox="0 0 300 300" style={{maxWidth:size,display:"block",margin:"0 auto"}}>
+  <circle cx={cx} cy={cy} r={R} fill="none" stroke="#e6e6ea" strokeWidth="1.5"/>
+  <polygon points={tri.map(p=>p.join(",")).join(" ")} fill="none" stroke="#e6e6ea" strokeWidth="1.2"/>
+  <polygon points={hex.map(p=>p.join(",")).join(" ")} fill="none" stroke="#e6e6ea" strokeWidth="1.2"/>
+  {!plain&&<polygon points={pts.map(p=>p.join(",")).join(" ")} fill={main?T[main].c:"#999"} fillOpacity=".14" stroke={main?T[main].c:"#aaa"} strokeWidth="2" style={{transition:"all .5s"}}/>}
+  {main>0&&<>
+    <line x1={pos(main,R)[0]} y1={pos(main,R)[1]} x2={pos(upMap[main],R)[0]} y2={pos(upMap[main],R)[1]} stroke="#2a9d8f" strokeWidth="2.4" strokeDasharray="5 3"/>
+    <line x1={pos(main,R)[0]} y1={pos(main,R)[1]} x2={pos(dnMap[main],R)[0]} y2={pos(dnMap[main],R)[1]} stroke="#e76f51" strokeWidth="2.4" strokeDasharray="5 3"/>
+  </>}
+  {[1,2,3,4,5,6,7,8,9].map(n=>{const[x,y]=pos(n,R);
+    const isM=n===main,isW=n===wing;
+    const r=isM?17:(isW?14:11);
+    return(<g key={n}>
+      <circle cx={x} cy={y} r={r} fill={isM?T[n].c:(isW?T[n].c:"#fff")} fillOpacity={isM?1:(isW?.35:1)} stroke={isM?T[n].c:(isW?T[n].c:"#d8d8de")} strokeWidth={isM?2.5:1.6} style={{transition:"all .4s"}}/>
+      <text x={x} y={y+4.5} textAnchor="middle" fill={isM?"#fff":(isW?T[n].c:"#999")} style={{fontSize:isM?14:12,fontWeight:isM||isW?700:500,fontFamily:"inherit"}}>{n}</text>
+      {!live&&!plain&&<text x={x+(x>cx?1:-1)*(r+13)} y={y+4} textAnchor={x>cx+5?"start":(x<cx-5?"end":"middle")} fill="#bbb" style={{fontSize:10.5,fontFamily:"inherit"}}>{scores[n]}</text>}
+    </g>);})}
+</svg>);}
+
+/* ═══════ 结果页 ═══════ */
+function Res({s,ss,main,wing,inst,onReset}){
+const t=T[main],w=T[wing],si=SUB[inst];
+const[pas,vir,vd]=VIR[main];
+const cen=Object.entries(CEN).find(([,v])=>v.t.includes(main));
+const cSum={};Object.entries(CEN).forEach(([k,v])=>{cSum[k]=v.t.reduce((a,n)=>a+s[n],0);});
+const cTot=Object.values(cSum).reduce((a,b)=>a+b,0)||1;
+const ord=[1,2,3,4,5,6,7,8,9].sort((a,b)=>s[b]-s[a]);
+const wl=main===1?9:main-1, wr=main===9?1:main+1;
+const wTot=s[wl]+s[wr]||1;
+
+return(<div style={C.rW} className="fi">
+<div style={{...C.hero,borderTop:`4px solid ${t.c}`}}>
+  <span style={C.eye}>YOUR TYPE</span>
+  <div style={{...C.code,color:t.c}}>{main}w{wing}</div>
+  <div style={C.nmRow}><span style={C.nm}>{t.n} · {t.a}</span></div>
+  <div style={{...C.instPill,background:si.c+"16",color:si.c}}>{si.n} {inst}</div>
+</div>
+
+<div style={C.card}>
+  <h3 style={C.cH}>九芒星图</h3>
+  <Star scores={s} main={main} wing={wing} size={320}/>
+  <div style={C.legend}>
+    <span style={C.lg}><i style={{...C.dot,background:t.c}}/>主型 {main}</span>
+    <span style={C.lg}><i style={{...C.dot,background:t.c,opacity:.35}}/>翼 {wing}</span>
+    <span style={C.lg}><i style={{...C.dash,background:"#2a9d8f"}}/>整合 →{t.up}</span>
+    <span style={C.lg}><i style={{...C.dash,background:"#e76f51"}}/>解离 →{t.down}</span>
+  </div>
+  <p style={C.ft}>外圈数字为九个型号得分（每型满分16）。内部三角连接 3-6-9，六边形连接 1-4-2-8-5-7，这是九型的固有结构。</p>
+</div>
+
+<div style={C.card}><h3 style={C.cH}>核心画像</h3><p style={C.dP}>{t.core}</p></div>
+
+<div style={C.card}>
+  <h3 style={C.cH}>九型得分</h3>
+  {ord.map((n,k)=>{const p=Math.round(s[n]/16*100);const isM=n===main,isW=n===wing;
+    return(<div key={n} style={C.eR}>
+      <span style={{...C.eL,fontWeight:isM?700:(isW?600:400),color:isM?T[n].c:(isW?"#666":"#aaa")}}>{n} {T[n].n}{isM?" · 主型":(isW?" · 翼":"")}</span>
+      <div style={C.eT}><div style={{width:`${p}%`,height:"100%",background:T[n].c,opacity:isM?1:(isW?.65:.25),borderRadius:4,transition:"width .6s"}}/></div>
+      <span style={C.eS}>{s[n]}</span></div>);})}
+</div>
+
+<div style={C.card}>
+  <h3 style={C.cH}>三中心能量分布</h3>
+  <p style={C.hint}>九型的底层结构：九个型号分属三个中心，每个中心有一种核心情绪。你的主型落在<b style={{color:cen[1].c}}>{cen[1].n}</b>。</p>
+  <div style={C.cenBar}>{Object.entries(CEN).map(([k,v])=>{const p=Math.round(cSum[k]/cTot*100);
+    return(<div key={k} style={{width:`${p}%`,background:v.c,opacity:k===cen[0]?1:.32,height:"100%",transition:"width .6s"}} title={v.n}/>);})}</div>
+  <div style={C.cenLeg}>{Object.entries(CEN).map(([k,v])=>(<span key={k} style={{...C.cLg,color:k===cen[0]?v.c:"#bbb",fontWeight:k===cen[0]?700:400}}>{v.n.split(" · ")[0]} {Math.round(cSum[k]/cTot*100)}%</span>))}</div>
+  <div style={{...C.cenBox,borderLeft:`3px solid ${cen[1].c}`}}>
+    <b style={{fontSize:14,color:cen[1].c}}>{cen[1].n} · 核心情绪：{cen[1].emo}</b>
+    <p style={C.cenD}>{cen[1].d}</p>
+    <div style={C.wayRow}>{cen[1].t.map(n=>(<div key={n} style={{...C.wayItem,background:n===main?cen[1].c+"12":"#fafafb",borderColor:n===main?cen[1].c:"transparent"}}>
+      <b style={{fontSize:12.5,color:n===main?cen[1].c:"#888"}}>{n}号</b>
+      <span style={{fontSize:12,color:n===main?"#444":"#999",lineHeight:1.55}}>{cen[1].w[n]}</span></div>))}</div>
+  </div>
+</div>
+
+<div style={C.card}>
+  <h3 style={C.cH}>执念与解药</h3>
+  <div style={C.vRow}>
+    <div style={{...C.vBox,background:"#fdf3f0"}}><span style={C.vLab}>核心执念</span><b style={{...C.vBig,color:"#e76f51"}}>{pas}</b></div>
+    <div style={C.vArrow}>→</div>
+    <div style={{...C.vBox,background:"#f0f8f5"}}><span style={C.vLab}>对应美德</span><b style={{...C.vBig,color:"#2a9d8f"}}>{vir}</b></div>
+  </div>
+  <p style={C.vD}>{vd}</p>
+  <div style={C.mech}>{[["注意力焦点",t.focus],["核心恐惧",t.fear],["核心渴望",t.desire],["防御机制",t.def]].map(([k,v])=>(
+    <div key={k} style={C.mI}><span style={C.mK}>{k}</span><span style={C.mV}>{v}</span></div>))}</div>
+</div>
+
+<div style={C.card}>
+  <h3 style={C.cH}>健康层级</h3>
+  <p style={C.hint}>同一个型号在不同状态下几乎是三个人。这是九型最实用的部分——不是问「我是几号」，是问「我现在在哪一层」。</p>
+  {["健康","一般","不健康"].map((lab,i)=>(<div key={i} style={{...C.lvRow,borderLeft:`3px solid ${["#2a9d8f","#e9a23b","#e76f51"][i]}`}}>
+    <span style={{...C.lvLab,color:["#2a9d8f","#e9a23b","#e76f51"][i]}}>{lab}</span>
+    <p style={C.lvTx}>{LV[main][i]}</p></div>))}
+</div>
+
+<div style={C.card}>
+  <h3 style={C.cH}>整合与解离</h3>
+  <p style={C.hint}>九型不是静态标签。压力下你会滑向一个型号，成长时会走向另一个——这两条路径是固定的。</p>
+  <div style={C.arrRow}>
+    <div style={{...C.arrBox,background:"#f0f8f5"}}>
+      <div style={C.arrHd}><span style={{fontSize:17,color:"#2a9d8f"}}>↗</span><b style={C.arrT}>整合 · {main} → {t.up}</b></div>
+      <p style={C.arrP}>{t.upT}</p>
+      <p style={C.arrX}>走向 <b>{t.up}号 {T[t.up].n}</b>：{T[t.up].motive}</p></div>
+    <div style={{...C.arrBox,background:"#fdf3f0"}}>
+      <div style={C.arrHd}><span style={{fontSize:17,color:"#e76f51"}}>↘</span><b style={C.arrT}>解离 · {main} → {t.down}</b></div>
+      <p style={C.arrP}>{t.downT}</p>
+      <p style={C.arrX}>滑向 <b>{t.down}号 {T[t.down].n}</b> 的一般或不健康层面</p></div>
+  </div>
+</div>
+
+<div style={C.card}>
+  <h3 style={C.cH}>翼型光谱</h3>
+  <p style={C.hint}>翼是主型两侧的邻居，给核心动机加上一层色彩。你的两侧是 {wl}号 和 {wr}号。</p>
+  <div style={C.wRow}>
+    <span style={{...C.wSide,color:wing===wl?T[wl].c:"#bbb",fontWeight:wing===wl?700:400}}>{wl} {T[wl].n} <small>{s[wl]}</small></span>
+    <div style={C.wTrack}>
+      <div style={{width:`${Math.round(s[wl]/wTot*100)}%`,height:"100%",background:T[wl].c,opacity:wing===wl?1:.3,borderRadius:"4px 0 0 4px",transition:"width .6s"}}/>
+      <div style={{width:`${Math.round(s[wr]/wTot*100)}%`,height:"100%",background:T[wr].c,opacity:wing===wr?1:.3,borderRadius:"0 4px 4px 0",transition:"width .6s"}}/>
+    </div>
+    <span style={{...C.wSide,color:wing===wr?T[wr].c:"#bbb",fontWeight:wing===wr?700:400,textAlign:"right"}}><small>{s[wr]}</small> {wr} {T[wr].n}</span>
+  </div>
+  <p style={C.ft}>{main}w{wing} = {t.n}的核心动机 + {w.n}的{w.focus}。</p>
+</div>
+
+<div style={C.card}>
+  <h3 style={C.cH}>本能变体</h3>
+  <p style={C.hint}>九型的第三层。同样是 {main}号，自保型、社交型、一对一型活出来是三种样子。</p>
+  <div style={C.subRow}>{["sp","so","sx"].map(k=>{const mxv=Math.max(...Object.values(ss),1);
+    return(<div key={k} style={{...C.subCol,background:k===inst?SUB[k].c+"12":"#fafafb",borderColor:k===inst?SUB[k].c:"transparent"}}>
+      <b style={{fontSize:13,color:k===inst?SUB[k].c:"#999"}}>{SUB[k].n}</b>
+      <div style={C.subBar}><div style={{width:`${ss[k]/mxv*100}%`,height:"100%",background:SUB[k].c,opacity:k===inst?1:.3,borderRadius:3,transition:"width .6s"}}/></div>
+      <span style={C.subS}>{ss[k]}/8</span></div>);})}</div>
+  <div style={{...C.subBox,borderLeft:`3px solid ${si.c}`}}>
+    <b style={{fontSize:14,color:si.c}}>{main}w{wing} {inst} · {si.n}</b>
+    <p style={C.dP}>{si.d}</p>
+    <div style={C.subSW}><div style={C.subSItem}><span style={C.mK}>优势</span><span style={C.mV}>{si.s}</span></div>
+      <div style={C.subSItem}><span style={C.mK}>陷阱</span><span style={C.mV}>{si.w}</span></div></div>
+  </div>
+</div>
+
+<div style={C.card}>
+  <h3 style={C.cH}>同型号人物</h3>
+  <div style={{display:"flex",flexWrap:"wrap",gap:9}}>{FAM[main].map((f,i)=>(
+    <div key={i} style={C.famC}><i style={{...C.dot,background:t.c}}/>{f}</div>))}</div>
+  <p style={C.ft}>历史人物的型号归属基于公开言行的推断，属于九型教学传统中的示例，不构成事实断定。</p>
+</div>
+
+<div style={C.card}>
+  <h3 style={C.cH}>适配的工作方式</h3>
+  <div style={{display:"flex",flexWrap:"wrap",gap:8}}>{CAR[main].map((c,i)=><span key={i} style={C.chip}>{c}</span>)}</div>
+  <p style={C.ft}>九型决定的不是你能做什么，是你在一份工作里会因为什么而投入、又会因为什么而耗尽。{t.n}最需要的环境条件：能满足「{t.desire}」，且不持续触发「{t.fear}」。</p>
+</div>
+
+<p style={C.disc}>本测评为自我探索工具，非医学或心理诊断，也不应用于招聘筛选。人格是流动的，结果反映的是你当前的倾向。</p>
+<button className="mB" onClick={onReset} style={{display:"block",margin:"20px auto 48px"}}>重新测评</button>
+</div>);}
+
+const CSS=`
+*{box-sizing:border-box;margin:0;padding:0}
+@keyframes fadeIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeOut{from{opacity:1}to{opacity:0;transform:translateY(-8px)}}
+.fi{animation:fadeIn .35s ease forwards}.fo{animation:fadeOut .16s ease forwards}
+.mB{background:#4A7C59;color:#fff;border:none;border-radius:12px;padding:15px 52px;font-size:16px;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit}
+.mB:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(74,124,89,.3)}
+.oB{display:flex;align-items:center;gap:16px;background:#fff;border:1.5px solid #e4e4ea;border-radius:14px;padding:18px 22px;cursor:pointer;transition:all .2s;text-align:left;width:100%;font-size:15px;font-family:inherit}
+.oB:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.08);border-color:#4A7C59}
+`;
+
+const C={
+root:{fontFamily:"-apple-system,'SF Pro Text','Noto Sans SC','PingFang SC',sans-serif",minHeight:"100vh",background:"#f5f5f7",color:"#1d1d1f"},
+ctr:{display:"flex",justifyContent:"center",alignItems:"center",minHeight:"100vh",padding:20},
+iCard:{background:"#fff",borderRadius:20,padding:"36px 32px",maxWidth:440,width:"100%",textAlign:"center",boxShadow:"0 4px 24px rgba(0,0,0,.06)"},
+iT:{fontSize:24,fontWeight:700,letterSpacing:1,margin:"14px 0 5px"},
+iS:{fontSize:11.5,color:"#999",letterSpacing:3,marginBottom:20},
+iSt:{display:"flex",justifyContent:"center",gap:22,marginBottom:18},
+iB:{display:"flex",flexDirection:"column",alignItems:"center"},
+iN:{fontSize:25,fontWeight:700,color:"#4A7C59"},iL:{fontSize:11.5,color:"#999",marginTop:2},
+iD:{width:1,height:32,background:"#eee"},
+iP:{fontSize:13.5,lineHeight:1.75,color:"#666",marginBottom:24},
+iNo:{fontSize:11.5,color:"#bbb",marginTop:13},
+tW:{maxWidth:540,margin:"0 auto",padding:"24px 20px",minHeight:"100vh"},
+tH:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8},
+bg:{fontSize:11,fontWeight:700,borderRadius:6,padding:"4px 11px"},
+cnt:{fontSize:15,fontWeight:700,color:"#333",fontVariantNumeric:"tabular-nums"},
+pT:{height:4,background:"#e8e8ed",borderRadius:2,overflow:"hidden",marginBottom:6},
+pF:{height:"100%",borderRadius:2,transition:"width .35s"},
+sS:{fontSize:12.5,color:"#aaa",marginBottom:26,lineHeight:1.5},
+qC:{display:"flex",flexDirection:"column",alignItems:"center"},
+qN:{fontSize:12,fontWeight:700,letterSpacing:3,marginBottom:16},
+op:{display:"flex",flexDirection:"column",gap:12,width:"100%"},
+oL:{flexShrink:0,width:32,height:32,borderRadius:"50%",background:"#f4f4f7",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:14},
+oT:{flex:1,lineHeight:1.55,color:"#333"},
+live:{marginTop:30,background:"#fff",borderRadius:14,padding:"16px 20px 12px",boxShadow:"0 2px 10px rgba(0,0,0,.04)"},
+lvT:{fontSize:11,fontWeight:600,color:"#bbb",letterSpacing:2,textAlign:"center",marginBottom:8},
+instCol:{flex:1,display:"flex",flexDirection:"column",alignItems:"center",height:74},
+instBarW:{flex:1,width:"100%",display:"flex",alignItems:"flex-end",background:"#f4f4f7",borderRadius:4},
+instL:{fontSize:10.5,color:"#aaa",marginTop:5},
+rW:{maxWidth:580,margin:"0 auto",padding:"28px 20px"},
+hero:{background:"#fff",borderRadius:16,padding:"32px 26px 24px",marginBottom:12,boxShadow:"0 4px 20px rgba(0,0,0,.06)",textAlign:"center"},
+eye:{fontSize:10,letterSpacing:5,color:"#bbb"},
+code:{fontSize:46,fontWeight:800,letterSpacing:3,margin:"8px 0 4px"},
+nmRow:{fontSize:16,color:"#555"},nm:{fontWeight:600},
+instPill:{display:"inline-block",marginTop:12,padding:"5px 15px",borderRadius:20,fontSize:12.5,fontWeight:700},
+card:{background:"#fff",borderRadius:14,padding:"22px 20px",marginBottom:12,boxShadow:"0 2px 10px rgba(0,0,0,.04)"},
+cH:{fontSize:14.5,fontWeight:700,marginBottom:14,color:"#333"},
+hint:{fontSize:12.5,color:"#999",lineHeight:1.7,marginBottom:14},
+dP:{fontSize:14,lineHeight:1.85,color:"#444"},
+ft:{fontSize:11.5,color:"#bbb",marginTop:11,lineHeight:1.65},
+legend:{display:"flex",justifyContent:"center",flexWrap:"wrap",gap:14,marginTop:10},
+lg:{display:"flex",alignItems:"center",gap:5,fontSize:11.5,color:"#888"},
+dot:{width:9,height:9,borderRadius:"50%",display:"inline-block",flexShrink:0},
+dash:{width:14,height:2.5,borderRadius:2,display:"inline-block",flexShrink:0},
+eR:{display:"flex",alignItems:"center",gap:10,marginBottom:8},
+eL:{width:112,fontSize:12,transition:"all .3s"},
+eT:{flex:1,height:8,background:"#f2f2f5",borderRadius:4,overflow:"hidden"},
+eS:{width:18,fontSize:11.5,color:"#aaa",textAlign:"right"},
+cenBar:{display:"flex",height:12,borderRadius:6,overflow:"hidden",gap:1.5,marginBottom:7},
+cenLeg:{display:"flex",justifyContent:"space-between",marginBottom:14},
+cLg:{fontSize:11.5},
+cenBox:{background:"#fafafb",borderRadius:9,padding:"14px 15px"},
+cenD:{fontSize:12.5,lineHeight:1.7,color:"#777",margin:"7px 0 11px"},
+wayRow:{display:"flex",gap:8,flexWrap:"wrap"},
+wayItem:{flex:"1 1 120px",display:"flex",flexDirection:"column",gap:3,padding:"9px 11px",borderRadius:8,border:"1px solid"},
+vRow:{display:"flex",alignItems:"center",gap:12,marginBottom:14},
+vBox:{flex:1,borderRadius:10,padding:"14px 12px",textAlign:"center"},
+vLab:{display:"block",fontSize:10.5,color:"#aaa",letterSpacing:1.5,marginBottom:5},
+vBig:{fontSize:19,fontWeight:700},
+vArrow:{fontSize:19,color:"#ddd"},
+vD:{fontSize:14,lineHeight:1.8,color:"#444",textAlign:"center",marginBottom:16,fontStyle:"italic"},
+mech:{display:"flex",flexWrap:"wrap",gap:9},
+mI:{flex:"1 1 145px",background:"#fafafb",borderRadius:9,padding:"10px 12px"},
+mK:{display:"block",fontSize:10.5,color:"#bbb",letterSpacing:1,marginBottom:3},
+mV:{fontSize:12.5,color:"#444",lineHeight:1.55},
+lvRow:{padding:"10px 0 10px 13px",marginBottom:10},
+lvLab:{fontSize:12,fontWeight:700,letterSpacing:1,display:"block",marginBottom:4},
+lvTx:{fontSize:13,lineHeight:1.75,color:"#555"},
+arrRow:{display:"flex",gap:12,flexWrap:"wrap"},
+arrBox:{flex:"1 1 220px",borderRadius:10,padding:"14px 15px"},
+arrHd:{display:"flex",alignItems:"center",gap:7,marginBottom:7},
+arrT:{fontSize:13.5,color:"#333"},
+arrP:{fontSize:13,lineHeight:1.7,color:"#555",marginBottom:9},
+arrX:{fontSize:12,lineHeight:1.65,color:"#888",paddingTop:9,borderTop:"1px solid rgba(0,0,0,.06)"},
+wRow:{display:"flex",alignItems:"center",gap:10,marginBottom:4},
+wSide:{width:80,fontSize:12,transition:"all .3s"},
+wTrack:{flex:1,display:"flex",height:9,borderRadius:5,overflow:"hidden",gap:1.5,background:"#f2f2f5"},
+subRow:{display:"flex",gap:9,marginBottom:14},
+subCol:{flex:1,padding:"11px 10px",borderRadius:9,border:"1px solid",display:"flex",flexDirection:"column",alignItems:"center",gap:6},
+subBar:{width:"100%",height:6,background:"#ececed",borderRadius:3,overflow:"hidden"},
+subS:{fontSize:10.5,color:"#aaa"},
+subBox:{background:"#fafafb",borderRadius:9,padding:"14px 15px"},
+subSW:{display:"flex",gap:9,marginTop:11,flexWrap:"wrap"},
+subSItem:{flex:"1 1 150px",background:"#fff",borderRadius:8,padding:"9px 11px"},
+famC:{display:"flex",alignItems:"center",gap:6,fontSize:13.5,color:"#444",background:"#f8f8fa",borderRadius:9,padding:"8px 14px"},
+chip:{fontSize:13,color:"#555",background:"#f0f0f5",borderRadius:8,padding:"6px 14px"},
+disc:{fontSize:11.5,color:"#bbb",textAlign:"center",lineHeight:1.7,marginTop:18,padding:"0 16px"},
+};
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
