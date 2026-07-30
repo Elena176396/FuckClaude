@@ -1,0 +1,657 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#faf9f5" />
+  <title>MBTI × 九型人格 · Song Chaoyang</title>
+  <style>
+    html,body,#root{min-height:100%;margin:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;background:#faf9f5}
+    .site-back{position:fixed;z-index:9999;left:14px;top:14px;padding:8px 12px;border-radius:999px;background:rgba(20,20,20,.82);color:#fff;text-decoration:none;font-size:13px;backdrop-filter:blur(8px)}
+  </style>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+  <a class="site-back" href="/tools/">← 工具中心</a>
+  <div id="root"></div>
+  <script>
+    window.storage = {
+      async get(key){ const value=localStorage.getItem(key); return value==null?null:{value}; },
+      async set(key,value){ localStorage.setItem(key,value); return true; }
+    };
+  </script>
+  <script type="text/babel" data-presets="env,react">
+    const { useState, useEffect, useRef, useMemo, useCallback } = React;
+
+/* ══════════════ 九型 72题 · 36配对×2 ══════════════ */
+const EQ = [
+["在团队里，我更容易指出哪里做得不对、标准还能更高","在团队里，我更容易察觉谁需要帮助、然后主动去支持",1,2],
+["把事情做对，比做成更重要","把事情做成，比做对更重要",1,3],
+["我努力修正自己不合规范的部分","我珍视自己与众不同的部分",1,4],
+["看到错误，我想的是怎么改正它","看到错误，我想的是它为什么会发生",1,5],
+["我担心的是自己做得不够好","我担心的是有情况没准备到",1,6],
+["我先想这件事该不该做","我先想这件事有不有趣",1,7],
+["我用标准去要求别人","我用气势去压住场面",1,8],
+["我很难对不合理的事视而不见","很多事没必要计较，过去就过去了",1,9],
+["我希望被人需要","我希望被人羡慕",2,3],
+["我更关注别人的情绪","我更关注自己的情绪",2,4],
+["我愿意为别人腾出时间和精力","我需要守住自己的时间和精力",2,5],
+["我主动帮别人解决麻烦","我提前提醒别人可能的风险",2,6],
+["聚会上我会去照顾没被照顾到的人","聚会上我会去带动气氛找乐子",2,7],
+["我靠温柔获得影响力","我靠强势获得影响力",2,8],
+["我会主动介入别人的困难","我不太想被卷进别人的事",2,9],
+["我努力成为出色的人","我努力成为真实的人",3,4],
+["我在意别人怎么看我","别人怎么看我没那么重要",3,5],
+["我相信只要拼就能赢","我总在想万一失败怎么办",3,6],
+["我追求的是成功","我追求的是尽兴",3,7],
+["我要赢，而且要赢得漂亮","我要赢，方式不重要",3,8],
+["闲着会让我焦虑","忙碌会让我疲惫",3,9],
+["我沉浸在感受里","我沉浸在思考里",4,5],
+["我常觉得自己缺了点什么","我常觉得外面有什么要出事",4,6],
+["痛苦会让我更深刻","痛苦我会绕开",4,7],
+["受伤时我退回自己的世界","受伤时我会反击回去",4,8],
+["我的情绪起伏很大","我的情绪一直比较平",4,9],
+["遇到问题我先自己弄明白","遇到问题我先找人确认",5,6],
+["我喜欢把一件事挖到底","我喜欢广泛尝试很多事",5,7],
+["我先观察，尽量不下场","我直接下场，边打边看",5,8],
+["我独处是为了钻研","我独处是为了清静",5,9],
+["做计划是为了防止出错","做计划是为了不错过好玩的",6,7],
+["面对威胁我先评估","面对威胁我先反击",6,8],
+["我很警觉，总在扫描周围","我比较放松，很多事没注意到",6,9],
+["被困住比被打压更难受","被打压比被困住更难受",7,8],
+["我闲不住，总得找点事做","我很能闲着，什么都不做也挺好",7,9],
+["有冲突就摆到台面上解决","有冲突我尽量绕过去",8,9],
+["我对自己的要求比对别人更严","我很难拒绝别人的请求",1,2],
+["我在意结果是否达到标准","我在意结果是否被人看见",1,3],
+["情绪应该被管理好","情绪应该被表达出来",1,4],
+["我需要世界更有秩序","我需要世界少来打扰我",1,5],
+["规则本身就是对的","规则让人有安全感",1,6],
+["我倾向于把一件事做完再休息","我倾向于同时开着好几件有意思的事",1,7],
+["生气时我会压着不发作","生气时我会直接表现出来",1,8],
+["我心里有一张「该做的事」清单","我更愿意顺其自然",1,9],
+["帮到别人让我觉得有价值","赢得认可让我觉得有价值",2,3],
+["我靠给予来靠近别人","我靠独特来吸引别人",2,4],
+["亲近让我觉得充实","亲近让我觉得消耗",2,5],
+["我付出是希望被喜爱","我付出是希望不被抛下",2,6],
+["我的注意力在别人身上","我的注意力在下一件有意思的事上",2,7],
+["被人需要让我安心","被人依赖是我的责任，我罩着他们",2,8],
+["我很在意别人是否喜欢我","我更在意大家是否相安无事",2,9],
+["我会调整自己去适应场合","我拒绝为了场合改变自己",3,4],
+["我把能力展示出来","我把能力藏起来",3,5],
+["我推着自己往前冲","我先确认后路再动",3,6],
+["我能为目标放弃享乐","我很难为目标放弃享乐",3,7],
+["我在意的是形象","我在意的是实权",3,8],
+["我很清楚自己想要什么","我常常说不清自己到底想要什么",3,9],
+["我的独特在于我的体验","我的独特在于我懂的东西",4,5],
+["我信自己的直觉感受","我信反复验证过的东西",4,6],
+["我愿意待在低落的情绪里","我会立刻找别的事让自己好起来",4,7],
+["我表达的是感受","我表达的是立场",4,8],
+["我希望被看见我的特别","我不太希望被特别关注",4,9],
+["我靠掌握知识让自己安心","我靠身边有人支持让自己安心",5,6],
+["过多的刺激让我疲惫","无聊会让我难受",5,7],
+["我用信息掌握局面","我用行动掌握局面",5,8],
+["我把自己从情境中抽离出来","我把自己融进环境里",5,9],
+["我先看风险","我先看机会",6,7],
+["我需要有可以依靠的人","我不想依靠任何人",6,8],
+["我犹豫是因为怕选错","我犹豫是因为怎样都行",6,9],
+["我用兴奋填满生活","我用掌控填满生活",7,8],
+["我回避痛苦的方式是往前冲","我回避冲突的方式是不动",7,9],
+["我的存在感很强","我的存在感很淡",8,9],
+];
+
+const ET = {
+1:{n:"完美型",a:"改革者",c:"#4A7C59",fear:"被谴责、自己不够正直",desire:"事事正确、无可指摘",motive:"消除错误，让世界符合它应有的样子",focus:"哪里不对、哪里还能更好",def:"反向形成",pas:"愤怒（压抑的）",up:7,down:4,upT:"放下拘谨，能自嘲、有创意、肯做新尝试",downT:"情绪化、自我批判、忧郁自怜"},
+2:{n:"助人型",a:"给予者",c:"#C1666B",fear:"不被爱、被认为不值得爱",desire:"被关怀、被需要",motive:"通过被需要，来确认自己值得被爱",focus:"别人需要什么",def:"压抑",pas:"骄傲",up:4,down:8,upT:"为自己的心愿坚持，承认自己也有需求",downT:"强势任性，把主意强加于人"},
+3:{n:"成就型",a:"实干者",c:"#D4A017",fear:"失败、能力不被认可",desire:"被赏识、被认同",motive:"通过拿到成果，来证明自己有价值",focus:"目标，以及别人的评价",def:"认同",pas:"虚荣",up:6,down:9,upT:"有涵养有实力，稳扎稳打不操之过急",downT:"一蹶不振，无主见，意念多而不专注"},
+4:{n:"感觉型",a:"个人主义者",c:"#8E6C9E",fear:"平庸、没有独特的身份",desire:"深入了解自我、活得真实",motive:"找到那个缺失的、能让自己完整的东西",focus:"缺了什么、别人有而我没有的",def:"内摄",pas:"嫉妒",up:1,down:2,upT:"冷静理性，做事有原则不感情用事",downT:"痴缠任性，占有欲强，反复无常"},
+5:{n:"思想型",a:"观察者",c:"#3D6E8C",fear:"被掏空、无能应付",desire:"胜任、彻底理解",motive:"囤积理解与能量，避免自己被掏空",focus:"我懂不懂、我够不够用",def:"隔离",pas:"贪婪（对知识与私密空间）",up:8,down:7,upT:"从旁观走向行动，敢于下场使用自己的力量",downT:"心浮气躁，注意力分散，逃避现实"},
+6:{n:"忠诚型",a:"怀疑论者",c:"#7A6C5D",fear:"失去支持、孤立无援",desire:"安全、有依靠",motive:"消除不确定，找到真正靠得住的东西",focus:"哪里可能出问题",def:"投射",pas:"恐惧",up:9,down:3,upT:"放松下来，信任自己与他人，内心安定",downT:"急躁竞争，用忙碌掩盖焦虑"},
+7:{n:"活跃型",a:"享乐者",c:"#E08D3C",fear:"被困住、陷入痛苦",desire:"满足、自由、选项敞开",motive:"逃离停滞与匮乏，让所有选项都敞开",focus:"下一件有意思的事",def:"合理化",pas:"暴食（对体验）",up:5,down:1,upT:"沉静专注，深入而非广泛，懂得节制",downT:"完美主义，挑剔苛刻，不耐烦"},
+8:{n:"领袖型",a:"挑战者",c:"#A43D3D",fear:"被控制、被伤害、示弱",desire:"自主、掌控局面",motive:"掌握控制权，绝不让自己处于弱势",focus:"谁说了算、公不公平",def:"否认",pas:"欲望（过度）",up:2,down:5,upT:"展现柔软和保护欲，把力量用在他人身上",downT:"退缩隔离，多疑，切断与人的连接"},
+9:{n:"和平型",a:"调停者",c:"#6B8E7B",fear:"冲突、失去连接、被撕扯",desire:"内在的平静与和谐",motive:"维持内在的平静，回避一切冲撞",focus:"别人想要什么、怎样才不起争执",def:"麻痹",pas:"懒惰（对自我的）",up:3,down:6,upT:"目标清晰，行动有力，把自己放回中心",downT:"焦虑多疑，被动攻击，反复摇摆"},
+};
+
+const EV = {1:[0,-.3,.3,.9],2:[.6,0,-.9,.2],3:[.7,0,.4,.6],4:[-.6,.7,-.8,-.3],5:[-.9,.5,.8,-.2],6:[-.1,-.3,0,.5],7:[.8,.7,0,-.9],8:[.7,0,.8,.4],9:[-.5,0,-.4,-.6]};
+
+/* ══════════════ MBTI 93题库 ══════════════ */
+const MQ = [
+["当你要外出一整天，你会——","计划好要做什么以及什么时候做","说去就去","J","P"],
+["你认为自己是一个——","较为随兴所至的人","较为有条理的人","P","J"],
+["假如你是一位老师，你会选教——","以事实为主的课程","涉及理论的课程","S","N"],
+["你通常——","与人容易混熟","比较沉静或矜持","E","I"],
+["一般来说，你和哪些人比较合得来？","富于想象力的人","务实的人","N","S"],
+["你是否经常让——","情感支配理智","理智主宰情感","F","T"],
+["处理许多事情时，你更喜欢——","凭兴致行事","按照计划行事","P","J"],
+["你觉得自己——","容易让人了解","不太容易让人了解","E","I"],
+["按照日程表做事——","合你心意","令你感到束缚","J","P"],
+["当你接到一项特别任务，你更喜欢——","开始前仔细规划","边做边摸索","J","P"],
+["在大多数情况下，你更倾向于——","顺其自然","按计划表行事","P","J"],
+["大多数人会说你是一个——","重视隐私的人","非常坦率开放的人","I","E"],
+["你宁愿被人认为是一个——","实事求是的人","机灵有创意的人","S","N"],
+["在一大群人当中，通常是——","你主动介绍大家认识","别人来介绍你","E","I"],
+["你更愿意和哪类人交朋友？","常提出新主意的人","脚踏实地的人","N","S"],
+["你更倾向于——","重视感情多于逻辑","重视逻辑多于感情","F","T"],
+["你比较喜欢——","等事情发展了再作计划","很早就开始规划","P","J"],
+["你喜欢花很多时间——","一个人独处","和别人在一起","I","E"],
+["与很多人在一起会——","令你精力充沛","常让你感到疲惫","E","I"],
+["你比较喜欢——","提前安排好约会和社交活动","无拘无束，看当时有什么好玩就做什么","J","P"],
+["规划一次旅行时，你更喜欢——","大部分时间跟着当天的感觉走","事先知道大部分日子会做什么","P","J"],
+["在社交聚会中，你——","有时感到无趣","常常乐在其中","I","E"],
+["你通常——","和别人容易打成一片","倾向于独处一隅","E","I"],
+["哪类人更吸引你？","思维敏捷、见解独到的人","务实稳重、经验丰富的人","N","S"],
+["在日常工作中，你更倾向于——","喜欢处理突发状况带来的紧迫感","预先计划以避免在压力下工作","P","J"],
+["你觉得别人通常——","要花很长时间才能了解你","很快就能了解你","I","E"],
+["注重隐私 vs 坦率开放","注重隐私","坦率开放","I","E"],
+["预先安排 vs 无计划","预先安排的","无计划的","J","P"],
+["抽象 vs 具体","抽象","具体","N","S"],
+["温柔 vs 坚定","温柔","坚定","F","T"],
+["思考 vs 感受","思考","感受","T","F"],
+["事实 vs 意念","事实","意念","S","N"],
+["冲动 vs 决断","冲动","决断","P","J"],
+["热情 vs 文静","热情","文静","E","I"],
+["文静 vs 外向","文静","外向","I","E"],
+["有系统 vs 随意","有系统","随意","J","P"],
+["理论 vs 确定","理论","确定","N","S"],
+["敏感 vs 公正","敏感","公正","F","T"],
+["令人信服 vs 感人的","令人信服","感人的","T","F"],
+["事实陈述 vs 抽象概念","事实陈述","抽象概念","S","N"],
+["不受约束 vs 预先安排","不受约束","预先安排","P","J"],
+["矜持 vs 健谈","矜持","健谈","I","E"],
+["有条不紊 vs 不拘小节","有条不紊","不拘小节","J","P"],
+["灵感创意 vs 客观实况","灵感创意","客观实况","N","S"],
+["同情怜悯 vs 高瞻远瞩","同情怜悯","高瞻远瞩","F","T"],
+["利益 vs 祝福","利益","祝福","T","F"],
+["务实的 vs 理论的","务实的","理论的","S","N"],
+["朋友不多 vs 朋友众多","朋友不多","朋友众多","I","E"],
+["有系统 vs 即兴","有系统","即兴","J","P"],
+["富想象力 vs 就事论事","富想象力","就事论事","N","S"],
+["亲切的 vs 客观的","亲切的","客观的","F","T"],
+["客观的 vs 热情的","客观的","热情的","T","F"],
+["建造 vs 发明","建造","发明","S","N"],
+["安静 vs 爱社交","安静","爱社交","I","E"],
+["理论 vs 事实","理论","事实","N","S"],
+["富同情心 vs 合逻辑","富同情心","合逻辑","F","T"],
+["善分析 vs 多愁善感","善分析","多愁善感","T","F"],
+["合情合理 vs 令人着迷","合情合理","令人着迷","S","N"],
+["一周内要完成一个大项目，你开始时会——","把不同工作依次列出","马上动手做","J","P"],
+["在社交场合中，你经常感到——","与某些人很难打开话匣子","与多数人都能从容长谈","I","E"],
+["要做许多人都在做的事，你更喜欢——","按照普遍认可的方法去做","构想一个自己的方法","S","N"],
+["你刚认识的朋友能否说出你的兴趣？","马上就可以","要等他们真正了解你之后才行","E","I"],
+["你通常更喜欢的科目是——","讲授概念和原则的","讲授事实和数据的","N","S"],
+["哪个是更高的赞誉？被称许为——","一贯感性的人","一贯理性的人","F","T"],
+["你觉得按照日程表做事——","有时需要，但通常不太喜欢","大多数情况下有帮助且乐于这样做","P","J"],
+["和一群人在一起，你通常会——","跟少数熟悉的人交谈","参与大伙的谈话","I","E"],
+["在社交聚会上，你往往——","是说话较多的那个","让别人多说","E","I"],
+["把周末要完成的事列成清单，这个想法——","合你意","让你提不起劲","J","P"],
+["哪个是更高的赞誉？被称许为——","能干的人","富有同情心的人","T","F"],
+["你通常喜欢——","事先安排好社交活动","随性而为","J","P"],
+["做一个大型作业时，你更倾向于——","边做边想该做什么","先把工作按步骤细分","P","J"],
+["你能滔滔不绝地与人聊天吗？","只限于有共同兴趣的人","几乎跟任何人都可以","I","E"],
+["你更倾向于——","沿用证明有效的方法","分析问题并寻找新解决方案","S","N"],
+["为乐趣而阅读时，你更喜欢——","奇特或创新的表达方式","作者直话直说","N","S"],
+["你更愿意为哪类上司工作？","为人和善，但偶尔前后不一致的","措辞犀利，但始终逻辑清晰的","F","T"],
+["你做事多数是——","按当天心情来","照拟好的计划来","P","J"],
+["你是否——","能和任何人从容交谈","只对某些人或在特定场合才畅所欲言","E","I"],
+["做决定时，你认为更重要的是——","依据事实衡量","考虑他人的感受和意见","T","F"],
+["想象的 vs 真实的","想象的","真实的","N","S"],
+["仁慈慷慨 vs 意志坚定","仁慈慷慨的","意志坚定的","F","T"],
+["公正 vs 有关怀心","公正的","有关怀心的","T","F"],
+["制作 vs 设计","制作","设计","S","N"],
+["可能性 vs 必然性","可能性","必然性","N","S"],
+["温柔 vs 力量","温柔","力量","F","T"],
+["实际 vs 感性","实际","感性","T","F"],
+["制造 vs 创造","制造","创造","S","N"],
+["新颖的 vs 已知的","新颖的","已知的","N","S"],
+["同情 vs 分析","同情","分析","F","T"],
+["坚持己见 vs 温柔有爱","坚持己见","温柔有爱心","T","F"],
+["具体的 vs 抽象的","具体的","抽象的","S","N"],
+["全心投入 vs 意志坚决","全心投入","意志坚决的","F","T"],
+["能干 vs 仁慈","能干","仁慈","T","F"],
+["务实 vs 创新","务实","创新","S","N"],
+];
+const MIDX = [0,3,2,5,1,11,4,63,6,13,12,68,8,17,60,74,9,18,73,77,16,21,19,59,20,61,24,65,58,66,67,76,75,
+28,29,33,31,30,27,43,37,41,46,38,42,57,44,47,78,45,48,82,50,53,85,56,86,79,92,87];
+
+/* ══════════════ MBTI 16型 ══════════════ */
+const MT = {
+ISTJ:{n:"检查官",m:"言出必行，使命必达",c:"#2B4C7E",core:"你重视秩序、规则和承诺，一旦接受任务就会不折不扣执行到底。你的世界建立在事实和经验之上。",str:"执行力极强 · 逻辑严密 · 忠诚可靠 · 细节把控超强",car:"审计师 · 项目经理 · 法官 · 质量管理"},
+ISFJ:{n:"守护者",m:"默默付出，温暖他人",c:"#3B7A57",core:"你温和、尽责、富有同理心，是团队中最稳定的力量。你总在默默关注他人的需求，重视传统与和谐。",str:"耐心细致 · 记忆力强 · 忠诚可靠 · 善造安全环境",car:"护士 · 教师 · 人力资源 · 社工"},
+INFJ:{n:"提倡者",m:"洞察本质，追寻意义",c:"#5B4A9E",core:"最稀有的类型。你有深刻的洞察力和强烈的理想主义，能看到他人看不到的模式与可能性。",str:"洞察人性 · 富有远见 · 文字表达强 · 愿景转化力",car:"心理咨询师 · 作家 · 组织顾问 · 教育改革者"},
+INTJ:{n:"建筑师",m:"万物皆可优化",c:"#1B2838",core:"战略思维的大师。你的大脑天生在构建系统和模型，善于从纷繁信息中抽取核心逻辑。",str:"战略规划 · 独立思考 · 学习极快 · 长期专注",car:"战略顾问 · 架构师 · 科学家 · 投资分析师"},
+ISTP:{n:"鉴赏家",m:"拆解问题，动手解决",c:"#4A6741",core:"天生的问题解决者。你冷静务实，善于在压力下保持清醒并快速找到方案，喜欢亲手验证原理。",str:"危机处理强 · 动手能力强 · 逻辑清晰 · 适应力强",car:"工程师 · 飞行员 · 外科医生 · 技术专家"},
+ISFP:{n:"探险家",m:"活在当下，感受美好",c:"#C17817",core:"安静、温和、内心丰富。你对美有敏锐感知，重视个人价值观，喜欢按自己的节奏生活。",str:"审美敏锐 · 捕捉细节 · 适应力强 · 温柔不评判",car:"设计师 · 摄影师 · 厨师 · 音乐家"},
+INFP:{n:"调停者",m:"忠于内心，追寻理想",c:"#7B68AE",core:"理想主义者与梦想家。你的内心有丰富深邃的世界，由强烈的价值观和对人性的信念构成。",str:"共情极强 · 创造力丰富 · 文字有感染力 · 价值驱动",car:"作家 · 心理咨询师 · UX设计师 · 社会工作者"},
+INTP:{n:"逻辑学家",m:"理解世界的底层逻辑",c:"#3D5A80",core:"思想的建筑师。你热爱理论与抽象推理，能在看似无关的事物间建立逻辑联系。",str:"分析卓越 · 发现逻辑漏洞 · 学习力强 · 理解复杂系统",car:"程序员 · 数学家 · 研究员 · 数据科学家"},
+ESTP:{n:"企业家",m:"行动就是答案",c:"#C62828",core:"精力充沛、果断、务实。你是天生的行动派，善于在现场快速评估形势并做出反应。",str:"反应迅速 · 社交能力强 · 善谈判 · 混乱中找机会",car:"销售总监 · 企业家 · 急诊医生 · 交易员"},
+ESFP:{n:"表演者",m:"人生是一场盛宴",c:"#E65100",core:"热情、慷慨、充满生命力。你是天生的社交明星，活在当下，对美好事物感知强烈。",str:"感染力强 · 适应力佳 · 调动氛围 · 人际直觉敏锐",car:"演员 · 活动策划 · 公关 · 健身教练"},
+ENFP:{n:"竞选者",m:"一切皆有可能",c:"#D4850D",core:"最具感染力的类型之一。你热情洋溢、富有想象力，能看到每个人和每件事的潜力。",str:"创意无限 · 沟通出色 · 激励他人 · 快速找替代方案",car:"创意总监 · 记者 · 创业者 · 产品经理"},
+ENTP:{n:"辩论家",m:"挑战一切既定规则",c:"#00838F",core:"聪明、机敏、享受智力碰撞。你天生喜欢质疑与辩论，不为争胜而为探索真理。",str:"思维敏捷 · 视角独特 · 看穿本质 · 头脑风暴王者",car:"律师 · 产品经理 · 战略顾问 · 风险投资人"},
+ESTJ:{n:"总经理",m:"纪律和效率至上",c:"#37474F",core:"天生的组织者与管理者。你重视秩序、效率和明确的规则，善于把混乱理清并推动执行。",str:"领导力强 · 组织出色 · 决策果断 · 执行力极高",car:"总经理 · 法官 · 财务总监 · 校长"},
+ESFJ:{n:"执政官",m:"团结协作，温暖前行",c:"#2E7D32",core:"热情、有爱心、高度重视人际和谐。你是天生的协调者，善于营造温暖的团队氛围。",str:"社交出色 · 组织力强 · 忠诚可靠 · 善调解冲突",car:"人力资源总监 · 护士长 · 客户关系经理"},
+ENFJ:{n:"主人公",m:"成就他人，就是成就自己",c:"#6A1B9A",core:"天生的领导者与教练。你有强烈的驱动力去帮助他人发挥潜能，对人际动态洞察敏锐。",str:"领导与亲和兼备 · 沟通出色 · 善于培养他人",car:"培训总监 · 教育家 · 非营利领导 · 心理治疗师"},
+ENTJ:{n:"指挥官",m:"效率是最高美德",c:"#880E4F",core:"最具决断力的领导者类型。你善于制定宏观战略并强力推动执行，能在复杂局面中快速决策。",str:"战略强大 · 决策果断 · 构建系统 · 驱动力惊人",car:"CEO · 管理顾问 · 企业家 · 技术总裁"},
+};
+
+const STK={ISTJ:["Si","Te","Fi","Ne"],ISFJ:["Si","Fe","Ti","Ne"],INFJ:["Ni","Fe","Ti","Se"],INTJ:["Ni","Te","Fi","Se"],ISTP:["Ti","Se","Ni","Fe"],ISFP:["Fi","Se","Ni","Te"],INFP:["Fi","Ne","Si","Te"],INTP:["Ti","Ne","Si","Fe"],ESTP:["Se","Ti","Fe","Ni"],ESFP:["Se","Fi","Te","Ni"],ENFP:["Ne","Fi","Te","Si"],ENTP:["Ne","Ti","Fe","Si"],ESTJ:["Te","Si","Ne","Fi"],ESFJ:["Fe","Si","Ne","Ti"],ENFJ:["Fe","Ni","Se","Ti"],ENTJ:["Te","Ni","Se","Fi"]};
+const FNA={Te:"建立系统、定标准、推动执行",Ti:"拆解原理、搭建自己的逻辑框架",Fe:"读取气氛、调动他人情绪、维系关系",Fi:"守住内在的价值判断、追求真实",Ne:"发散可能性、把不相干的东西连起来",Ni:"收敛成一个洞察、提前看到走向",Se:"抓住当下、直接上手、用身体感知",Si:"依靠过往经验、把稳定的东西守住"};
+const FNN={Ni:"内倾直觉",Ne:"外倾直觉",Si:"内倾感觉",Se:"外倾感觉",Ti:"内倾思考",Te:"外倾思考",Fi:"内倾情感",Fe:"外倾情感"};
+const FND={Ni:"洞察深层模式与走向，思维高度聚焦",Ne:"发散联想，看到多种可能与创意连接",Si:"重视经验与细节记忆，偏好稳定",Se:"对当下环境高度敏感，捕捉即时信息",Ti:"构建内在逻辑框架，追求原理精确",Te:"注重外部效率与客观标准，善组织执行",Fi:"依据深层个人价值观判断，追求真实",Fe:"关注群体情感氛围，善协调关系"};
+const FNR=["主导 · 最擅长","辅助 · 日常依赖","第三 · 成长空间","劣势 · 盲区"];
+const FNC=["#4361ee","#2a9d8f","#e9c46a","#e76f51"];
+
+/* ══════════════ 反差萌 ══════════════ */
+const NICK={"ENTJ3":"人间推土机","ENTJ4":"美学暴君","ENTJ5":"幕后黑手","ENTJ8":"顶级掠食者",
+"INTJ3":"精致利己主义者","INTJ4":"高冷致郁系","INTJ5":"全知者","INTJ8":"反叛领袖",
+"ENTP3":"辩论赛冠军","ENTP4":"疯批艺术家","ENTP5":"疯狂科学家","ENTP8":"混乱制造者",
+"INTP3":"学术卷王","INTP4":"颓废美学家","INTP5":"隐形观察者","INTP8":"逻辑暴君",
+"ENFJ2":"传销式关爱","ENFJ4":"悲情圣母","ENFJ6":"操心老妈子","ENFJ9":"和平大使",
+"INFJ2":"读心神探","INFJ4":"林黛玉转世","INFJ6":"危机雷达","INFJ9":"佛系隐士",
+"ENFP2":"热心修勾","ENFP4":"情绪过山车","ENFP6":"焦虑小蜜蜂","ENFP9":"快乐躺平家",
+"INFP2":"治愈系树洞","INFP4":"纯爱战神","INFP6":"玻璃心本心","INFP9":"白日梦想家",
+"ESTJ1":"绝对权威","ESTJ3":"职场卷王","ESTJ6":"忠诚保镖",
+"ISTJ1":"人形扫描仪","ISTJ3":"隐形富豪","ISTJ6":"尽职守门员",
+"ESFJ1":"社区大妈","ESFJ3":"名媛拼单","ESFJ6":"抱团取暖",
+"ISFJ1":"洁癖管家","ISFJ3":"贴心小棉袄","ISFJ6":"老好人",
+"ESTP7":"局王本王","ESTP8":"街头霸王","ESTP9":"佛系现充",
+"ISTP7":"极限玩家","ISTP8":"独行侠","ISTP9":"技术宅",
+"ESFP7":"气氛组组长","ESFP8":"霸道甜心","ESFP9":"傻白甜",
+"ISFP7":"流浪诗人","ISFP8":"暴躁画手","ISFP9":"慵懒猫咪"};
+const EMOD={1:"纠错",2:"暖心",3:"卷王",4:"破碎",5:"极客",6:"焦虑",7:"脱缰",8:"霸道",9:"躺平"};
+const MNOUN={ENTJ:"推土机",INTJ:"战略家",ENTP:"杠精",INTP:"学者",ENFJ:"布道者",INFJ:"读心人",ENFP:"修勾",INFP:"诗人",ESTJ:"监工",ISTJ:"扫描仪",ESFJ:"居委会",ISFJ:"管家",ESTP:"莽夫",ISTP:"技术宅",ESFP:"气氛组",ISFP:"文艺猫"};
+const EQUIRK={1:"别人还没觉得有问题，你已经在心里改了三遍",2:"你记得所有人的生日，但没人问过你累不累",3:"简历比人生精彩，因为人生都拿去做简历了",4:"「全世界都不懂我」——你说这句的时候是认真的",5:"社交电量5%，且没带充电器",6:"还没出事你已经想好三套预案，真出事了你反而最冷静",7:"开了八个新项目，完成了零个",8:"你不是想赢，你是不能输",9:"「什么都行」是你最坚固的防御工事"};
+const MQUIRK={ENTJ:"顺便把整个流程重构了",INTJ:"在脑子里已经推演到第七步",ENTP:"先反驳，理由随后就到",INTP:"想通了，但懒得说",ENFJ:"把关心做成了KPI",INFJ:"看穿了，但假装没看穿",ENFP:"热情持续三天",INFP:"在心里演完了整部剧",ESTJ:"已经排好甘特图",ISTJ:"流程第三条你没遵守",ESFJ:"在群里@所有人",ISFJ:"默默收拾了所有烂摊子",ESTP:"先干了再说",ISTP:"拆开看看就懂了",ESFP:"全场最亮的仔",ISFP:"审美过关，deadline不过关"};
+
+/* ══════════════ 融合计算 ══════════════ */
+const DP=[["E","I"],["S","N"],["T","F"],["J","P"]];
+const DSH={E:"外向",I:"内向",S:"实感",N:"直觉",T:"思考",F:"情感",J:"判断",P:"感知"};
+const DC={E:"#4361ee",I:"#7209b7",S:"#2a9d8f",N:"#e76f51",T:"#f77f00",F:"#d62828",J:"#6a4c93",P:"#1982c4"};
+
+const TENS=[
+["外壳向外、内核向内：你在人前能撑住场面，但那不是充电，是消耗。社交之后你需要很长的恢复期，而别人以为你乐在其中。",
+ "外壳向内、内核向外：你看上去安静克制，内心却一直有股想往外冲的劲。这股劲没有出口时，会转成焦躁或对自己的不满。"],
+["外壳抽象、内核具体：你的思维习惯往远处飘，但驱动你的焦虑是具体的、当下的。于是你常用一个宏大的构想，去处理一件其实很小的现实担忧。",
+ "外壳务实、内核漫游：你办事讲实际、看得见摸得着，但内心真正在意的东西说不清也抓不住。这让你在做完一堆正确的事之后，仍然觉得不对劲。"],
+["逻辑外壳、情感内核：你用道理说话、用效率做事，但真正推动你的是一个关于「被爱」或「被认可」的情绪需求。你会用大量分析，去包装一个其实很软的动机。",
+ "共情外壳、冷硬内核：你待人温和、会照顾别人的感受，但内核对力量、掌控或独立有很硬的诉求。压力一大，那层温和会突然掉下来。"],
+["收敛外壳、开放内核：你会做计划、定截止、推进度，但内核抗拒被锁死。结果是不断启动宏大计划，又在执行途中被新的可能性拽走——你不缺执行力，你缺的是允许自己完成。",
+ "随性外壳、内在的应该：你外表看起来松弛、不设限，心里却装着一张「应该做到」的清单。别人以为你自在，只有你知道那张清单从没停过。"]];
+
+function mvec(t){return [t[0]==="E"?1:-1,t[1]==="N"?1:-1,t[2]==="T"?1:-1,t[3]==="J"?1:-1];}
+function bvec(main,wing){return EV[main].map((v,i)=>v*0.7+EV[wing][i]*0.3);}
+function syn(t,v){const M=mvec(t);return Math.round(100-(M.reduce((a,x,i)=>a+Math.abs(x-v[i]),0)/8)*100);}
+function tens(t,v){const M=mvec(t);const o=[];TENS.forEach((tt,i)=>{const d=M[i]-v[i];if(Math.abs(d)>=1.1)o.push(d>0?tt[0]:tt[1]);});return o;}
+function synL(s){
+  if(s>=75)return{t:"高度协同",c:"#2a9d8f",d:"外壳和内核方向一致。你的行为方式天然服务于你的核心动机，内耗小、爆发力强——但盲区也会被放大，因为没有任何一部分的你在踩刹车。"};
+  if(s>=55)return{t:"中度协同",c:"#4361ee",d:"外壳和内核大体同向，但有局部摩擦。这是最常见也最健康的配置：足够顺畅可以行动，又有足够张力促成自我觉察。"};
+  if(s>=40)return{t:"明显张力",c:"#e9a23b",d:"外壳和内核在几个方向上互相拉扯。你可能常被误解，也常觉得「我做的事和我真正想要的不是一回事」。这种配置成长潜力最大，但要先看清拉扯在哪。"};
+  return{t:"高度张力",c:"#e76f51",d:"外壳和内核方向相反。这是最少见也最辛苦的配置——你花大量精力用一种方式，去追求一个需要另一种方式才能得到的东西。看清这一点本身，就已经是最大的解脱。"};
+}
+
+/* ══════════════ 主程序 ══════════════ */
+function App(){
+  const [ph,setPh]=useState("intro");
+  const [tone,setTone]=useState("pro");
+  const [qi,setQi]=useState(0);
+  const [es,setEs]=useState({1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0});
+  const [ms,setMs]=useState({E:0,I:0,S:0,N:0,T:0,F:0,J:0,P:0});
+  const [fade,setFade]=useState("fi");
+
+  const MQS=useMemo(()=>MIDX.map(i=>MQ[i]),[]);
+  const TOTAL=EQ.length+MQS.length;
+  const inE=qi<EQ.length;
+  const cur=inE?EQ[qi]:MQS[qi-EQ.length];
+
+  const pick=useCallback((ch)=>{
+    setFade("fo");
+    setTimeout(()=>{
+      if(inE){const k=ch==="A"?cur[2]:cur[3];setEs(p=>({...p,[k]:p[k]+1}));}
+      else{const k=ch==="A"?cur[3]:cur[4];setMs(p=>({...p,[k]:p[k]+1}));}
+      if(qi+1>=TOTAL)setPh("result");else setQi(qi+1);
+      setFade("fi");
+    },180);
+  },[qi,cur,inE,TOTAL]);
+
+  const mbti=useMemo(()=>DP.map(([a,b])=>ms[a]>ms[b]?a:b).join(""),[ms]);
+  const {main,wing}=useMemo(()=>{
+    let mx=-1,mn=1;
+    for(let i=1;i<=9;i++)if(es[i]>mx){mx=es[i];mn=i;}
+    const l=mn===1?9:mn-1, r=mn===9?1:mn+1;
+    return {main:mn,wing:es[l]>=es[r]?l:r};
+  },[es]);
+
+  const reset=()=>{setPh("intro");setQi(0);setEs({1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0});setMs({E:0,I:0,S:0,N:0,T:0,F:0,J:0,P:0});};
+  const pct=Math.round(qi/TOTAL*100);
+
+  return(<div style={S.root}><style>{CSS}</style>
+    {ph==="intro"&&<div style={S.center}><div style={S.iCard}>
+      <svg width="52" height="52" viewBox="0 0 52 52" style={{marginBottom:14}}>
+        <circle cx="26" cy="26" r="23" fill="none" stroke="#4361ee" strokeWidth="2"/>
+        <polygon points="26,7 42,36 10,36" fill="none" stroke="#e76f51" strokeWidth="1.8"/>
+        <circle cx="26" cy="26" r="4" fill="#4361ee"/>
+      </svg>
+      <h1 style={S.iT}>双系统人格测评</h1>
+      <p style={S.iS}>MBTI × 九型 · 288 种融合型号</p>
+      <div style={S.iStats}>
+        <div style={S.iSt}><b style={S.iN}>72</b><span style={S.iL}>九型题</span></div>
+        <div style={S.iD}/><div style={S.iSt}><b style={S.iN}>60</b><span style={S.iL}>MBTI题</span></div>
+        <div style={S.iD}/><div style={S.iSt}><b style={S.iN}>288</b><span style={S.iL}>融合型号</span></div>
+      </div>
+      <p style={S.iDesc}>九型测「你为什么这样做」，MBTI测「你怎么做」。两者交叉，才是完整的你。<br/>共 132 题，约 22 分钟。</p>
+      <div style={S.toneWrap}>
+        <p style={S.toneLab}>报告语气</p>
+        <div style={S.toneRow}>
+          <button className={"tBtn"+(tone==="pro"?" tOn":"")} onClick={()=>setTone("pro")}>专业版<span style={S.tSub}>深度分析</span></button>
+          <button className={"tBtn"+(tone==="fun"?" tOn":"")} onClick={()=>setTone("fun")}>反差萌<span style={S.tSub}>适合分享</span></button>
+        </div>
+      </div>
+      <button className="mBtn" onClick={()=>setPh("test")}>开始测评</button>
+      <p style={S.iNote}>凭直觉作答 · 没有对错之分 · 结果页可随时切换语气</p>
+    </div></div>}
+
+    {ph==="test"&&<div style={S.tWrap}>
+      <div style={S.tHead}>
+        <div style={S.tHL}>
+          <span style={{...S.badge,background:inE?"#fdf0e4":"#eef0ff",color:inE?"#E08D3C":"#4361ee"}}>{inE?"第一部分 · 九型":"第二部分 · MBTI"}</span>
+        </div>
+        <span style={S.cnt}>{qi+1}<span style={{color:"#bbb"}}>/{TOTAL}</span></span>
+      </div>
+      <div style={S.pT}><div style={{...S.pF,width:`${pct}%`,background:inE?"linear-gradient(90deg,#E08D3C,#C1666B)":"linear-gradient(90deg,#4361ee,#7209b7)"}}/></div>
+      <p style={S.sSub}>{inE?"哪句话更像你？关注内心真实的驱动，而不是你希望自己是什么样。":"哪个答案更贴切地描述你的日常感受或行为？"}</p>
+      <div className={fade} style={S.qC}>
+        <span style={{...S.qN,color:inE?"#E08D3C":"#4361ee"}}>Q{qi+1}</span>
+        {!inE&&<p style={cur[0].includes(" vs ")?S.qWP:S.qTx}>{cur[0]}</p>}
+        <div style={S.opts}>
+          {["A","B"].map(ch=>(<button key={ch} className="oBtn" onClick={()=>pick(ch)}>
+            <span style={{...S.oL,color:inE?"#E08D3C":"#4361ee"}}>{ch}</span>
+            <span style={S.oT}>{inE?cur[ch==="A"?0:1]:cur[ch==="A"?1:2]}</span>
+          </button>))}
+        </div>
+      </div>
+      {!inE&&<div style={S.live}>
+        <p style={S.liveT}>MBTI 维度实时追踪</p>
+        {DP.map(([a,b])=>{const sa=ms[a],sb=ms[b],t=sa+sb||1,pa=Math.round(sa/t*100);const w=sa>sb?a:(sb>sa?b:null);
+          return(<div key={a+b} style={S.lRow}>
+            <span style={{...S.lL,fontWeight:w===a?700:400,color:w===a?DC[a]:"#bbb"}}>{DSH[a]}</span>
+            <div style={S.lBar}><div style={{height:"100%",width:`${pa}%`,background:DC[a],borderRadius:"3px 0 0 3px",transition:"width .4s"}}/><div style={{height:"100%",width:`${100-pa}%`,background:DC[b],borderRadius:"0 3px 3px 0",transition:"width .4s"}}/></div>
+            <span style={{...S.lR,fontWeight:w===b?700:400,color:w===b?DC[b]:"#bbb"}}>{DSH[b]}</span>
+          </div>);})}
+      </div>}
+      {inE&&<div style={S.live}>
+        <p style={S.liveT}>九型得分实时追踪</p>
+        <div style={S.eGrid}>{[1,2,3,4,5,6,7,8,9].map(i=>{
+          const mx=Math.max(...Object.values(es),1);
+          return(<div key={i} style={S.eCol}>
+            <div style={S.eBarW}><div style={{width:"100%",height:`${es[i]/mx*100}%`,background:ET[i].c,borderRadius:"3px 3px 0 0",transition:"height .4s",minHeight:es[i]?4:0}}/></div>
+            <span style={S.eNum}>{i}</span>
+          </div>);})}</div>
+      </div>}
+    </div>}
+
+    {ph==="result"&&<Result mbti={mbti} main={main} wing={wing} es={es} ms={ms} tone={tone} setTone={setTone} onReset={reset}/>}
+  </div>);
+}
+
+function Result({mbti,main,wing,es,ms,tone,setTone,onReset}){
+  const mi=MT[mbti], ei=ET[main], wi=ET[wing];
+  const v=bvec(main,wing), sc=syn(mbti,v), sl=synL(sc), tl=tens(mbti,v);
+  const stack=STK[mbti], code=`${mbti} · ${main}w${wing}`;
+  const nick=NICK[mbti+main]||`${EMOD[main]}${MNOUN[mbti]}`;
+  const eOrder=[1,2,3,4,5,6,7,8,9].sort((a,b)=>es[b]-es[a]);
+
+  return(<div style={S.rWrap} className="fi">
+    <div style={{...S.rHero,borderTop:`4px solid ${ei.c}`}}>
+      <span style={S.rEye}>FUSION TYPE</span>
+      <div style={S.rCode}><span style={{color:mi.c}}>{mbti}</span><span style={S.rSep}>·</span><span style={{color:ei.c}}>{main}w{wing}</span></div>
+      {tone==="pro"
+        ?<div style={S.rNames}><span style={S.rNm}>{mi.n}</span><span style={{color:"#ddd"}}>×</span><span style={S.rNm}>{ei.n}{wing}翼</span></div>
+        :<div style={S.rNick}>{nick}</div>}
+      <div style={{...S.synPill,background:sl.c+"18",color:sl.c}}>协同度 {sc} · {sl.t}</div>
+    </div>
+
+    <div style={S.tSwitch}>
+      <button className={"sBtn"+(tone==="pro"?" sOn":"")} onClick={()=>setTone("pro")}>专业版</button>
+      <button className={"sBtn"+(tone==="fun"?" sOn":"")} onClick={()=>setTone("fun")}>反差萌</button>
+    </div>
+
+    {tone==="fun"?<>
+      <div style={S.card}>
+        <h3 style={S.cH}>你的隐藏人设</h3>
+        <div style={{...S.nickBig,color:ei.c}}>{nick}</div>
+        <p style={S.funLine}>{EQUIRK[main]}，然后{MQUIRK[mbti]}。</p>
+      </div>
+      <div style={S.card}>
+        <h3 style={S.cH}>反差点</h3>
+        <div style={S.contrast}>
+          <div style={S.cSide}><span style={S.cLab}>别人看到的</span><p style={S.cTxt}>{mi.n} — {mi.m}</p></div>
+          <div style={S.cArrow}>≠</div>
+          <div style={S.cSide}><span style={S.cLab}>实际驱动你的</span><p style={S.cTxt}>{ei.n}{wing}翼 — {ei.motive}</p></div>
+        </div>
+      </div>
+      {tl.length>0&&<div style={S.card}><h3 style={S.cH}>最矛盾的地方</h3><p style={S.dP}>{tl[0]}</p></div>}
+      <div style={S.card}>
+        <h3 style={S.cH}>一句话总结</h3>
+        <p style={S.funBig}>「{ei.desire}」的灵魂，装在「{mi.m}」的壳子里。</p>
+      </div>
+    </>:<>
+      <div style={S.card}>
+        <h3 style={S.cH}>外壳与内核</h3>
+        <div style={S.shell}>
+          <div style={{...S.shBox,borderColor:mi.c}}><span style={{...S.shTag,color:mi.c}}>外壳 · 怎么做</span><b style={S.shT}>{mbti} {mi.n}</b><p style={S.shP}>{mi.core}</p></div>
+          <div style={{...S.shBox,borderColor:ei.c}}><span style={{...S.shTag,color:ei.c}}>内核 · 为什么</span><b style={S.shT}>{main}w{wing} {ei.n}</b><p style={S.shP}>核心恐惧是{ei.fear}；核心渴望是{ei.desire}。{wi.n}的{wing}翼给这个内核加上了「{wi.focus}」的偏向。</p></div>
+        </div>
+        <div style={{...S.fuseBox,borderLeft:`3px solid ${ei.c}`}}>
+          <span style={S.fuseLab}>融合驱动</span>
+          <p style={S.fuseTxt}>你用<b style={{color:mi.c}}>「{FNA[stack[0]]}」</b>的方式，去<b style={{color:ei.c}}>「{ei.motive}」</b>。</p>
+        </div>
+      </div>
+
+      <div style={{...S.card,borderLeft:`3px solid ${sl.c}`}}>
+        <h3 style={S.cH}>协同度 {sc}/100 · {sl.t}</h3>
+        <div style={S.synBar}><div style={{height:"100%",width:`${sc}%`,background:sl.c,borderRadius:4,transition:"width .8s"}}/></div>
+        <p style={S.dP}>{sl.d}</p>
+      </div>
+
+      {tl.length>0&&<div style={S.card}>
+        <h3 style={S.cH}>内在张力（{tl.length} 处）</h3>
+        <p style={S.hint}>这些是外壳和内核方向不一致的地方。单看MBTI或单看九型都发现不了。</p>
+        {tl.map((t,i)=><div key={i} style={S.tenRow}><span style={S.tenNum}>{i+1}</span><p style={S.tenTxt}>{t}</p></div>)}
+      </div>}
+
+      <div style={S.card}>
+        <h3 style={S.cH}>九型得分分布</h3>
+        {eOrder.map((i,k)=>{const p=Math.round(es[i]/16*100);
+          return(<div key={i} style={S.eRow}>
+            <span style={{...S.eLab,fontWeight:k===0?700:(i===wing?600:400),color:k===0?ET[i].c:(i===wing?"#666":"#aaa")}}>
+              {i}号 {ET[i].n}{k===0?" · 主型":(i===wing?" · 翼":"")}
+            </span>
+            <div style={S.eTrack}><div style={{height:"100%",width:`${p}%`,background:ET[i].c,opacity:k===0?1:(i===wing?.7:.3),borderRadius:4,transition:"width .6s"}}/></div>
+            <span style={S.eScore}>{es[i]}</span>
+          </div>);})}
+        <p style={S.foot}>每型满分16。翼型 = 主型两侧相邻型中得分较高者。</p>
+      </div>
+
+      <div style={S.card}>
+        <h3 style={S.cH}>MBTI 维度</h3>
+        {DP.map(([a,b])=>{const sa=ms[a],sb=ms[b],t=sa+sb||1,pa=Math.round(sa/t*100);const w=sa>sb?a:b;
+          return(<div key={a+b} style={{marginBottom:16}}>
+            <div style={S.bL}>
+              <span style={{fontSize:13,fontWeight:w===a?700:400,color:w===a?DC[a]:"#999"}}>{DSH[a]}({a}) <small>{sa}</small></span>
+              <span style={{fontSize:13,fontWeight:w===b?700:400,color:w===b?DC[b]:"#999"}}><small>{sb}</small> ({b}){DSH[b]}</span>
+            </div>
+            <div style={S.bT}><div style={{height:"100%",width:`${pa}%`,background:DC[a],borderRadius:"4px 0 0 4px",transition:"width .6s"}}/><div style={{height:"100%",width:`${100-pa}%`,background:DC[b],borderRadius:"0 4px 4px 0",transition:"width .6s"}}/></div>
+          </div>);})}
+      </div>
+
+      <div style={S.card}>
+        <h3 style={S.cH}>认知功能栈</h3>
+        <p style={S.hint}>四个字母背后，是八个认知功能的优先级排列。它决定了你如何获取信息、如何做出判断。</p>
+        {stack.map((f,i)=>(<div key={f} style={S.fnRow}>
+          <div style={{...S.fnB,background:FNC[i]}}>{["①","②","③","④"][i]}</div>
+          <div style={{flex:1}}>
+            <div style={S.fnH}><b style={{color:FNC[i]}}>{f}</b><span style={{fontSize:13,color:"#666"}}>{FNN[f]}</span><span style={{fontSize:11,color:"#aaa",marginLeft:"auto"}}>{FNR[i]}</span></div>
+            <p style={S.fnD}>{FND[f]}</p>
+          </div></div>))}
+      </div>
+
+      <div style={S.card}>
+        <h3 style={S.cH}>压力与成长</h3>
+        <div style={S.spRow}>
+          <div style={{...S.spBox,background:"#fdf3f0"}}>
+            <span style={{fontSize:18,color:"#e76f51"}}>↓</span>
+            <h4 style={S.spH}>压力下走向 {ei.down}号</h4>
+            <p style={S.spP}>{ei.downT}</p>
+            <p style={S.spX}>叠加 MBTI 劣势功能 <b>{stack[3]}</b>（{FNN[stack[3]]}）失控，会表现为{FND[stack[3]].replace(/。$/,"")}的反面。</p>
+          </div>
+          <div style={{...S.spBox,background:"#f0f8f5"}}>
+            <span style={{fontSize:18,color:"#2a9d8f"}}>↑</span>
+            <h4 style={S.spH}>成长走向 {ei.up}号</h4>
+            <p style={S.spP}>{ei.upT}</p>
+            <p style={S.spX}>路径是刻意练习 MBTI 第三功能 <b>{stack[2]}</b>（{FNN[stack[2]]}）：{FND[stack[2]]}。</p>
+          </div>
+        </div>
+      </div>
+
+      <div style={S.card}>
+        <h3 style={S.cH}>核心机制</h3>
+        <div style={S.mechGrid}>
+          {[["注意力焦点",ei.focus],["防御机制",ei.def],["核心执念",ei.pas],["核心恐惧",ei.fear],["核心渴望",ei.desire],["主导功能",`${stack[0]} ${FNN[stack[0]]}`]].map(([k,val])=>(
+            <div key={k} style={S.mechItem}><span style={S.mechK}>{k}</span><span style={S.mechV}>{val}</span></div>))}
+        </div>
+      </div>
+
+      <div style={S.card}>
+        <h3 style={S.cH}>职业方向</h3>
+        <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+          {mi.car.split(" · ").map((c,i)=><span key={i} style={S.chip}>{c}</span>)}
+        </div>
+        <p style={S.foot}>以上基于 MBTI 外壳。九型内核决定的是：你在这些岗位上会因为什么而投入，又会因为什么而消耗。</p>
+      </div>
+    </>}
+
+    <p style={S.disc}>本测评为自我探索工具，非临床诊断。人格是流动的，结果反映的是你当前的倾向。</p>
+    <button className="mBtn" onClick={onReset} style={{display:"block",margin:"20px auto 48px"}}>重新测评</button>
+  </div>);
+}
+
+const CSS=`
+*{box-sizing:border-box;margin:0;padding:0}
+@keyframes fadeIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeOut{from{opacity:1}to{opacity:0;transform:translateY(-8px)}}
+.fi{animation:fadeIn .35s ease forwards}.fo{animation:fadeOut .16s ease forwards}
+.mBtn{background:#4361ee;color:#fff;border:none;border-radius:12px;padding:15px 52px;font-size:16px;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit}
+.mBtn:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(67,97,238,.3)}
+.oBtn{display:flex;align-items:center;gap:16px;background:#fff;border:1.5px solid #e4e4ea;border-radius:14px;padding:18px 22px;cursor:pointer;transition:all .2s;text-align:left;width:100%;font-size:15px;font-family:inherit}
+.oBtn:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.08);border-color:#4361ee}
+.tBtn{flex:1;background:#fff;border:1.5px solid #e4e4ea;border-radius:12px;padding:12px 8px;cursor:pointer;font-size:14px;font-weight:600;color:#666;font-family:inherit;transition:all .2s;display:flex;flex-direction:column;align-items:center;gap:3px}
+.tBtn:hover{border-color:#4361ee}
+.tOn{border-color:#4361ee;background:#f5f7ff;color:#4361ee}
+.sBtn{flex:1;background:transparent;border:none;border-radius:9px;padding:9px;cursor:pointer;font-size:13px;font-weight:600;color:#888;font-family:inherit;transition:all .2s}
+.sOn{background:#fff;color:#1d1d1f;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+`;
+
+const S={
+root:{fontFamily:"-apple-system,'SF Pro Text','Noto Sans SC','PingFang SC',sans-serif",minHeight:"100vh",background:"#f5f5f7",color:"#1d1d1f"},
+center:{display:"flex",justifyContent:"center",alignItems:"center",minHeight:"100vh",padding:20},
+iCard:{background:"#fff",borderRadius:20,padding:"40px 32px",maxWidth:450,width:"100%",textAlign:"center",boxShadow:"0 4px 24px rgba(0,0,0,.06)"},
+iT:{fontSize:24,fontWeight:700,letterSpacing:1,marginBottom:6},
+iS:{fontSize:12,color:"#999",letterSpacing:2,marginBottom:22},
+iStats:{display:"flex",justifyContent:"center",gap:22,marginBottom:20},
+iSt:{display:"flex",flexDirection:"column",alignItems:"center"},
+iN:{fontSize:26,fontWeight:700,color:"#4361ee"},iL:{fontSize:12,color:"#999",marginTop:2},
+iD:{width:1,height:34,background:"#eee"},
+iDesc:{fontSize:13.5,lineHeight:1.75,color:"#666",marginBottom:22},
+toneWrap:{marginBottom:22},
+toneLab:{fontSize:11,color:"#bbb",letterSpacing:3,marginBottom:8},
+toneRow:{display:"flex",gap:10},
+tSub:{fontSize:10,fontWeight:400,color:"#aaa"},
+iNote:{fontSize:11.5,color:"#bbb",marginTop:14},
+tWrap:{maxWidth:540,margin:"0 auto",padding:"24px 20px",minHeight:"100vh"},
+tHead:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8},
+tHL:{display:"flex",alignItems:"center",gap:8},
+badge:{fontSize:11,fontWeight:700,borderRadius:6,padding:"4px 11px",letterSpacing:.5},
+cnt:{fontSize:15,fontWeight:700,color:"#333",fontVariantNumeric:"tabular-nums"},
+pT:{height:4,background:"#e8e8ed",borderRadius:2,overflow:"hidden",marginBottom:6},
+pF:{height:"100%",borderRadius:2,transition:"width .35s ease"},
+sSub:{fontSize:12.5,color:"#aaa",marginBottom:26,lineHeight:1.5},
+qC:{display:"flex",flexDirection:"column",alignItems:"center"},
+qN:{fontSize:12,fontWeight:700,letterSpacing:3,marginBottom:12},
+qTx:{fontSize:18,fontWeight:500,lineHeight:1.65,textAlign:"center",marginBottom:26,minHeight:48},
+qWP:{fontSize:16,lineHeight:1.6,textAlign:"center",marginBottom:26,color:"#555",letterSpacing:3},
+opts:{display:"flex",flexDirection:"column",gap:12,width:"100%"},
+oL:{flexShrink:0,width:32,height:32,borderRadius:"50%",background:"#f0f0f5",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:14},
+oT:{flex:1,lineHeight:1.55,color:"#333"},
+live:{marginTop:32,background:"#fff",borderRadius:14,padding:"18px 20px",boxShadow:"0 2px 10px rgba(0,0,0,.04)"},
+liveT:{fontSize:11,fontWeight:600,color:"#bbb",letterSpacing:2,textAlign:"center",marginBottom:14},
+lRow:{display:"flex",alignItems:"center",gap:10,marginBottom:9},
+lL:{width:32,fontSize:12,textAlign:"right",transition:"all .3s"},
+lR:{width:32,fontSize:12,textAlign:"left",transition:"all .3s"},
+lBar:{flex:1,display:"flex",height:6,borderRadius:3,overflow:"hidden",gap:1,background:"#f0f0f5"},
+eGrid:{display:"flex",alignItems:"flex-end",justifyContent:"space-between",gap:6,height:76},
+eCol:{flex:1,display:"flex",flexDirection:"column",alignItems:"center",height:"100%"},
+eBarW:{flex:1,width:"100%",display:"flex",alignItems:"flex-end",background:"#f4f4f7",borderRadius:3},
+eNum:{fontSize:10,color:"#bbb",marginTop:4},
+rWrap:{maxWidth:580,margin:"0 auto",padding:"28px 20px"},
+rHero:{background:"#fff",borderRadius:16,padding:"34px 26px 26px",marginBottom:12,boxShadow:"0 4px 20px rgba(0,0,0,.06)",textAlign:"center"},
+rEye:{fontSize:10,letterSpacing:5,color:"#bbb"},
+rCode:{fontSize:34,fontWeight:800,letterSpacing:2,margin:"10px 0 6px",display:"flex",justifyContent:"center",alignItems:"center",gap:10,flexWrap:"wrap"},
+rSep:{color:"#ddd",fontWeight:300},
+rNames:{display:"flex",justifyContent:"center",gap:10,fontSize:16,color:"#555",flexWrap:"wrap"},
+rNm:{fontWeight:600},
+rNick:{fontSize:22,fontWeight:700,color:"#333"},
+synPill:{display:"inline-block",marginTop:14,padding:"5px 16px",borderRadius:20,fontSize:12.5,fontWeight:700},
+tSwitch:{display:"flex",gap:4,background:"#e9e9ee",borderRadius:11,padding:3,marginBottom:14},
+card:{background:"#fff",borderRadius:14,padding:"22px 20px",marginBottom:12,boxShadow:"0 2px 10px rgba(0,0,0,.04)"},
+cH:{fontSize:14.5,fontWeight:700,marginBottom:14,color:"#333",letterSpacing:.5},
+hint:{fontSize:12.5,color:"#999",lineHeight:1.65,marginBottom:14},
+dP:{fontSize:14,lineHeight:1.8,color:"#444"},
+foot:{fontSize:11.5,color:"#bbb",marginTop:10,lineHeight:1.6},
+shell:{display:"flex",gap:10,flexWrap:"wrap",marginBottom:14},
+shBox:{flex:"1 1 210px",border:"1.5px solid",borderRadius:11,padding:"14px 15px"},
+shTag:{fontSize:10.5,fontWeight:700,letterSpacing:1.5},
+shT:{display:"block",fontSize:15,margin:"5px 0 7px",color:"#222"},
+shP:{fontSize:12.5,lineHeight:1.7,color:"#666"},
+fuseBox:{background:"#fafafb",borderRadius:9,padding:"14px 16px"},
+fuseLab:{fontSize:10.5,fontWeight:700,color:"#bbb",letterSpacing:2},
+fuseTxt:{fontSize:15,lineHeight:1.85,color:"#333",marginTop:6},
+synBar:{height:8,background:"#f0f0f5",borderRadius:4,overflow:"hidden",marginBottom:14},
+tenRow:{display:"flex",gap:12,marginBottom:14,alignItems:"flex-start"},
+tenNum:{flexShrink:0,width:22,height:22,borderRadius:"50%",background:"#f0f0f5",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"#888",marginTop:2},
+tenTxt:{flex:1,fontSize:13.5,lineHeight:1.8,color:"#555"},
+eRow:{display:"flex",alignItems:"center",gap:10,marginBottom:8},
+eLab:{width:118,fontSize:12,transition:"all .3s"},
+eTrack:{flex:1,height:8,background:"#f2f2f5",borderRadius:4,overflow:"hidden"},
+eScore:{width:20,fontSize:11.5,color:"#aaa",textAlign:"right",fontVariantNumeric:"tabular-nums"},
+bL:{display:"flex",justifyContent:"space-between",marginBottom:5},
+bT:{display:"flex",height:8,borderRadius:4,overflow:"hidden",gap:1},
+fnRow:{display:"flex",gap:13,marginBottom:15,alignItems:"flex-start"},
+fnB:{width:25,height:25,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:12,fontWeight:700,flexShrink:0,marginTop:2},
+fnH:{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:3},
+fnD:{fontSize:12.5,lineHeight:1.65,color:"#888"},
+spRow:{display:"flex",gap:12,flexWrap:"wrap"},
+spBox:{flex:"1 1 220px",borderRadius:10,padding:"15px 16px"},
+spH:{fontSize:13.5,fontWeight:700,margin:"5px 0 8px",color:"#333"},
+spP:{fontSize:13,lineHeight:1.7,color:"#555",marginBottom:9},
+spX:{fontSize:12,lineHeight:1.65,color:"#888",paddingTop:9,borderTop:"1px solid rgba(0,0,0,.06)"},
+mechGrid:{display:"flex",flexWrap:"wrap",gap:10},
+mechItem:{flex:"1 1 150px",background:"#fafafb",borderRadius:9,padding:"11px 13px"},
+mechK:{display:"block",fontSize:10.5,color:"#bbb",letterSpacing:1,marginBottom:4},
+mechV:{fontSize:13,color:"#444",fontWeight:500,lineHeight:1.5},
+chip:{fontSize:13,color:"#555",background:"#f0f0f5",borderRadius:8,padding:"6px 14px"},
+nickBig:{fontSize:30,fontWeight:800,textAlign:"center",margin:"6px 0 14px",letterSpacing:1},
+funLine:{fontSize:15,lineHeight:1.85,color:"#444",textAlign:"center"},
+contrast:{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"},
+cSide:{flex:"1 1 170px",background:"#fafafb",borderRadius:10,padding:"14px 15px"},
+cLab:{fontSize:10.5,color:"#bbb",letterSpacing:1.5,display:"block",marginBottom:6},
+cTxt:{fontSize:13.5,lineHeight:1.65,color:"#444"},
+cArrow:{fontSize:22,color:"#ddd",fontWeight:300},
+funBig:{fontSize:17,lineHeight:1.9,color:"#333",textAlign:"center",fontWeight:500},
+disc:{fontSize:11.5,color:"#bbb",textAlign:"center",lineHeight:1.7,marginTop:18,padding:"0 20px"},
+};
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
