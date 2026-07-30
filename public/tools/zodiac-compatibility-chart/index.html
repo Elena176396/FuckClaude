@@ -1,0 +1,207 @@
+
+<h2 class="sr-only">十二生肖关系盘：六合、三合、六冲、相害关系图</h2>
+<style>
+  .zp{padding:1rem 0;font-family:var(--font-sans)}
+  .zp-legend{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin:12px 0 0;font-size:12px;color:var(--text-secondary)}
+  .zp-legend span{display:flex;align-items:center;gap:4px}
+  .zp-legend i{display:inline-block;width:18px;height:3px;border-radius:2px}
+  .zp-tabs{display:flex;gap:4px;justify-content:center;margin-bottom:8px}
+  .zp-tab{padding:5px 12px;border-radius:6px;font-size:12px;cursor:pointer;border:0.5px solid var(--border-strong);background:var(--surface-1);color:var(--text-secondary);font-weight:400;transition:all .15s;font-family:inherit}
+  .zp-tab.on{border-color:var(--border-accent);background:var(--bg-accent);color:var(--text-accent);font-weight:500}
+  .zp-detail{margin-top:14px}
+  .zp-card{padding:10px 14px;border-radius:10px;border:0.5px solid var(--border);background:var(--surface-1);margin-bottom:6px}
+  .zp-card-t{font-size:13px;font-weight:500;color:var(--text-primary);margin-bottom:3px}
+  .zp-card-d{font-size:12px;color:var(--text-secondary);line-height:1.5}
+</style>
+
+<div class="zp">
+<svg id="zp-svg" width="100%" viewBox="0 0 680 520" role="img">
+<title>十二生肖关系盘</title>
+<desc>十二生肖按圆形排列，线条显示六合、三合、六冲、相害关系</desc>
+<defs>
+<marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
+</defs>
+</svg>
+
+<div class="zp-legend">
+  <span><i style="background:#0F6E56"></i>六合（最亲密）</span>
+  <span><i style="background:#534AB7"></i>三合（同局）</span>
+  <span><i style="background:#E24B4A"></i>六冲（对立）</span>
+  <span><i style="background:#BA7517;opacity:.6"></i>相害（暗耗）</span>
+</div>
+
+<div class="zp-tabs" id="ztabs"></div>
+<div class="zp-detail" id="zdetail"></div>
+</div>
+
+<script>
+const animals = ['鼠','牛','虎','兔','龙','蛇','马','羊','猴','鸡','狗','猪'];
+const branches = ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
+const wxMap = ['水','土','木','木','土','火','火','土','金','金','土','水'];
+const wxC = {'金':'#888780','木':'#639922','水':'#378ADD','火':'#E24B4A','土':'#BA7517'};
+const wxBg = {'金':'#F1EFE8','木':'#EAF3DE','水':'#E6F1FB','火':'#FCEBEB','土':'#FAEEDA'};
+
+const cx = 340, cy = 260, R = 185, rNode = 32;
+const pos = animals.map((_,i) => {
+  const a = (-90 + i*30) * Math.PI/180;
+  return {x: cx + R*Math.cos(a), y: cy + R*Math.sin(a)};
+});
+
+const liuhe = [[0,1,'合土','子丑合土，亲密无间，最佳搭档'],[2,11,'合木','寅亥合木，仁义相投，互相扶持'],[3,10,'合火','卯戌合火，热情忠诚，心有灵犀'],[4,9,'合金','辰酉合金，果断利落，效率搭档'],[5,8,'合水','巳申合水，聪慧灵活，默契互补'],[6,7,'合火','午未合火，温和有礼，和谐共处']];
+const sanhe = [[[8,0,4],'水局','猴鼠龙三合水局，智慧流通，善于谋划'],[[2,6,10],'火局','虎马狗三合火局，热情行动，雷厉风行'],[[5,9,1],'金局','蛇鸡牛三合金局，坚毅果断，目标明确'],[[11,3,7],'木局','猪兔羊三合木局，仁爱柔和，与人为善']];
+const liuchong = [[0,6,'子午冲','鼠马相冲，水火对立，性格和节奏差异大'],[1,7,'丑未冲','牛羊相冲，都很固执，容易僵持'],[2,8,'寅申冲','虎猴相冲，竞争激烈，互不服气'],[3,9,'卯酉冲','兔鸡相冲，表面客气实则较劲'],[4,10,'辰戌冲','龙狗相冲，两个硬脾气碰到一起'],[5,11,'巳亥冲','蛇猪相冲，想法南辕北辙']];
+const hai = [[0,7,'子未害','鼠羊相害，暗中消耗，面和心不和'],[1,6,'丑午害','牛马相害，互相牵制难配合'],[2,5,'寅巳害','虎蛇相害，明合暗争有猜忌'],[3,4,'卯辰害','兔龙相害，表面融洽内心疏远'],[8,11,'申亥害','猴猪相害，表面热络暗藏心机'],[9,10,'酉戌害','鸡狗相害，在一起总有摩擦']];
+
+const dark = matchMedia('(prefers-color-scheme:dark)').matches;
+const svg = document.getElementById('zp-svg');
+const ns = 'http://www.w3.org/2000/svg';
+
+function el(tag, attrs, parent) {
+  const e = document.createElementNS(ns, tag);
+  for (const [k,v] of Object.entries(attrs)) e.setAttribute(k, v);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+
+function drawLine(a, b, color, dash, opacity, cls) {
+  const pa = pos[a], pb = pos[b];
+  const dx = pb.x-pa.x, dy = pb.y-pa.y;
+  const dist = Math.sqrt(dx*dx+dy*dy);
+  const nx = dx/dist, ny = dy/dist;
+  const x1 = pa.x+nx*(rNode+4), y1 = pa.y+ny*(rNode+4);
+  const x2 = pb.x-nx*(rNode+4), y2 = pb.y-ny*(rNode+4);
+  const l = el('line', {x1,y1,x2,y2,stroke:color,'stroke-width':'1.5','stroke-linecap':'round',opacity:opacity||'1'}, svg);
+  if (dash) l.setAttribute('stroke-dasharray', dash);
+  if (cls) l.setAttribute('class', cls);
+  return l;
+}
+
+function drawTriangle(idxs, color, cls) {
+  const pts = idxs.map(i => {
+    const p = pos[i];
+    const dx = p.x-cx, dy = p.y-cy;
+    const d = Math.sqrt(dx*dx+dy*dy);
+    return `${p.x - dx/d*(rNode+4)},${p.y - dy/d*(rNode+4)}`;
+  }).join(' ');
+  el('polygon', {points:pts,fill:'none',stroke:color,'stroke-width':'1.2','stroke-dasharray':'6 4',opacity:'0.4',class:cls||''}, svg);
+}
+
+let lines = {};
+lines.he = liuhe.map(([a,b]) => drawLine(a,b,'#0F6E56',null,'0.6','line-he'));
+lines.sanhe = sanhe.map(([idxs]) => { drawTriangle(idxs,'#534AB7','line-sh'); });
+lines.chong = liuchong.map(([a,b]) => drawLine(a,b,'#E24B4A','5 3','0.5','line-ch'));
+lines.hai = hai.map(([a,b]) => drawLine(a,b,'#BA7517','3 3','0.3','line-hai'));
+
+animals.forEach((name, i) => {
+  const p = pos[i];
+  const wx = wxMap[i];
+  const bg = dark ? (wxC[wx]+'22') : (wxBg[wx]);
+  const g = el('g', {style:'cursor:pointer'}, svg);
+  g.addEventListener('click', () => selectAnimal(i));
+  el('circle', {cx:p.x, cy:p.y, r:rNode, fill:bg, stroke:dark?wxC[wx]+'66':wxC[wx], 'stroke-width':'0.5'}, g);
+  const t1 = el('text', {x:p.x, y:p.y-6, 'text-anchor':'middle', 'dominant-baseline':'central', 'font-size':'16', 'font-weight':'500', fill:dark?'var(--text-primary)':'var(--text-primary)'}, g);
+  t1.textContent = name;
+  const t2 = el('text', {x:p.x, y:p.y+12, 'text-anchor':'middle', 'font-size':'10', fill:wxC[wx]}, g);
+  t2.textContent = branches[i]+'·'+wx;
+});
+
+const tabs = document.getElementById('ztabs');
+const detail = document.getElementById('zdetail');
+let selected = -1;
+
+animals.forEach((name, i) => {
+  const btn = document.createElement('button');
+  btn.className = 'zp-tab';
+  btn.textContent = name;
+  btn.onclick = () => selectAnimal(i);
+  tabs.appendChild(btn);
+});
+
+function selectAnimal(idx) {
+  selected = idx;
+  document.querySelectorAll('.zp-tab').forEach((t,i) => t.classList.toggle('on', i===idx));
+
+  let html = '';
+  const name = animals[idx];
+
+  liuhe.forEach(([a,b,wx,desc]) => {
+    if (a===idx||b===idx) {
+      const other = a===idx?b:a;
+      html += `<div class="zp-card"><div class="zp-card-t">🤝 六合 · ${name}+${animals[other]}（${wx}）</div><div class="zp-card-d">${desc}</div></div>`;
+    }
+  });
+
+  sanhe.forEach(([idxs,wx,desc]) => {
+    if (idxs.includes(idx)) {
+      const others = idxs.filter(x=>x!==idx).map(x=>animals[x]).join('、');
+      html += `<div class="zp-card"><div class="zp-card-t">🔗 三合 · ${name}+${others}（${wx}）</div><div class="zp-card-d">${desc}</div></div>`;
+    }
+  });
+
+  liuchong.forEach(([a,b,label,desc]) => {
+    if (a===idx||b===idx) {
+      const other = a===idx?b:a;
+      html += `<div class="zp-card"><div class="zp-card-t">⚡ 六冲 · ${name} vs ${animals[other]}</div><div class="zp-card-d">${desc}</div></div>`;
+    }
+  });
+
+  hai.forEach(([a,b,label,desc]) => {
+    if (a===idx||b===idx) {
+      const other = a===idx?b:a;
+      html += `<div class="zp-card"><div class="zp-card-t">💔 相害 · ${name}+${animals[other]}</div><div class="zp-card-d">${desc}</div></div>`;
+    }
+  });
+
+  if (!html) html = '<div class="zp-card"><div class="zp-card-d">点击生肖查看关系</div></div>';
+  detail.innerHTML = html;
+
+  svg.querySelectorAll('line,polygon').forEach(l => l.setAttribute('opacity','0.08'));
+  svg.querySelectorAll('circle').forEach((c,i) => {
+    if (i!==idx) { c.setAttribute('opacity','0.3'); }
+    else { c.setAttribute('opacity','1'); c.setAttribute('stroke-width','2'); }
+  });
+
+  liuhe.forEach(([a,b],li) => {
+    if (a===idx||b===idx) {
+      const line = svg.querySelectorAll('.line-he')[li];
+      if(line){line.setAttribute('opacity','0.9');line.setAttribute('stroke-width','2.5');}
+      svg.querySelectorAll('circle')[a===idx?b:a]?.setAttribute('opacity','1');
+    }
+  });
+  liuchong.forEach(([a,b],li) => {
+    if (a===idx||b===idx) {
+      const line = svg.querySelectorAll('.line-ch')[li];
+      if(line){line.setAttribute('opacity','0.8');line.setAttribute('stroke-width','2');}
+      svg.querySelectorAll('circle')[a===idx?b:a]?.setAttribute('opacity','1');
+    }
+  });
+  hai.forEach(([a,b],li) => {
+    if (a===idx||b===idx) {
+      const line = svg.querySelectorAll('.line-hai')[li];
+      if(line){line.setAttribute('opacity','0.6');line.setAttribute('stroke-width','1.5');}
+      svg.querySelectorAll('circle')[a===idx?b:a]?.setAttribute('opacity','1');
+    }
+  });
+  sanhe.forEach(([idxs],si) => {
+    if (idxs.includes(idx)) {
+      const tri = svg.querySelectorAll('.line-sh')[si];
+      if(tri){tri.setAttribute('opacity','0.6');tri.setAttribute('stroke-width','2');}
+      idxs.forEach(x => svg.querySelectorAll('circle')[x]?.setAttribute('opacity','1'));
+    }
+  });
+}
+
+function resetAll() {
+  svg.querySelectorAll('line,polygon').forEach(l => {
+    const cls = l.getAttribute('class')||'';
+    if(cls.includes('he')) l.setAttribute('opacity','0.6');
+    else if(cls.includes('sh')) l.setAttribute('opacity','0.4');
+    else if(cls.includes('ch')) l.setAttribute('opacity','0.5');
+    else if(cls.includes('hai')) l.setAttribute('opacity','0.3');
+    l.setAttribute('stroke-width', cls.includes('sh')?'1.2':'1.5');
+  });
+  svg.querySelectorAll('circle').forEach(c => {c.setAttribute('opacity','1');c.setAttribute('stroke-width','0.5');});
+}
+
+detail.innerHTML = '<div class="zp-card"><div class="zp-card-d">点击圆盘上的生肖或上方标签，查看它和谁合、和谁冲</div></div>';
+</script>
