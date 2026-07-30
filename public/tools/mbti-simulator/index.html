@@ -23,7 +23,7 @@
       async set(key,value){ localStorage.setItem(key,value); return true; }
     };
   </script>
-  <script type="text/babel" data-presets="env,react">
+  <script type="text/plain" id="app-source">
     const { useState, useEffect, useRef, useMemo, useCallback } = React;
 
 /* ═══════════════════════════════════════════════════════════
@@ -630,6 +630,12 @@ const css = {
 };
 
     ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+  <script>
+    const { code } = Babel.transform(document.getElementById('app-source').textContent, {
+      presets: [['env'], ['react', { runtime: 'classic' }]]
+    });
+    new Function(code)();
   </script>
 </body>
 </html>
