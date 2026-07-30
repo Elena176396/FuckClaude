@@ -1,0 +1,512 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#faf9f5" />
+  <title>专注计时器 · Song Chaoyang</title>
+  <style>
+    html,body,#root{min-height:100%;margin:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;background:#faf9f5}
+    .site-back{position:fixed;z-index:9999;left:14px;top:14px;padding:8px 12px;border-radius:999px;background:rgba(20,20,20,.82);color:#fff;text-decoration:none;font-size:13px;backdrop-filter:blur(8px)}
+  </style>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+  <a class="site-back" href="/tools/">← 工具中心</a>
+  <div id="root"></div>
+  <script>
+    window.storage = {
+      async get(key){ const value=localStorage.getItem(key); return value==null?null:{value}; },
+      async set(key,value){ localStorage.setItem(key,value); return true; }
+    };
+  </script>
+  <script type="text/babel" data-presets="env,react">
+    const { useState, useEffect, useRef, useMemo, useCallback } = React;
+
+const T = {
+  bg: "#14161B",
+  surface: "#1B1E25",
+  surfaceHi: "#232732",
+  line: "#2C313D",
+  text: "#E9E7E1",
+  dim: "#8B919E",
+  faint: "#5A6070",
+  amber: "#E0A458",
+  amberDeep: "#B67F3A",
+  sage: "#8FB49A",
+  sageDeep: "#5F8A6E",
+};
+
+const DEFAULT_TAGS = ["数学/逻辑", "编程", "英语口语", "阅读/写作", "工作"];
+
+const fmt = (s) => {
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+};
+
+const todayKey = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
+function beep(kind) {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const notes = kind === "focus-end" ? [523, 659, 784] : [784, 659, 523];
+    notes.forEach((f, i) => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = "sine";
+      o.connect(g);
+      g.connect(ctx.destination);
+      o.frequency.value = f;
+      const t = ctx.currentTime + i * 0.18;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.linearRampToValueAtTime(0.12, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+      o.start(t);
+      o.stop(t + 0.4);
+    });
+  } catch (e) {}
+}
+
+async function loadState() {
+  try {
+    const r = await window.storage.get("focus-timer-state");
+    return r ? JSON.parse(r.value) : null;
+  } catch (e) {
+    return null;
+  }
+}
+async function saveState(obj) {
+  try {
+    await window.storage.set("focus-timer-state", JSON.stringify(obj));
+  } catch (e) {}
+}
+
+function FocusTimer() {
+  const [phase, setPhase] = useState("focus");
+  const [running, setRunning] = useState(false);
+  const [cfg, setCfg] = useState({ focus: 25, short: 5, long: 15, autoNext: false, sound: true });
+  const [remaining, setRemaining] = useState(25 * 60);
+  const [tags, setTags] = useState(DEFAULT_TAGS);
+  const [activeTag, setActiveTag] = useState(DEFAULT_TAGS[0]);
+  const [sessions, setSessions] = useState([]);
+  const [view, setView] = useState("timer");
+  const [newTag, setNewTag] = useState("");
+  const [loaded, setLoaded] = useState(false);
+  const endRef = useRef(null);
+  const tickRef = useRef(null);
+  const stateRef = useRef({});
+
+  stateRef.current = { phase, cfg, activeTag, sessions, tags };
+
+  useEffect(() => {
+    loadState().then((s) => {
+      if (s) {
+        if (s.cfg) setCfg((c) => ({ ...c, ...s.cfg }));
+        if (s.tags && s.tags.length) setTags(s.tags);
+        if (s.activeTag) setActiveTag(s.activeTag);
+        if (s.sessions) setSessions(s.sessions);
+        setRemaining((s.cfg?.focus || 25) * 60);
+      }
+      setLoaded(true);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!loaded) return;
+    saveState({ cfg, tags, activeTag, sessions });
+  }, [cfg, tags, activeTag, sessions, loaded]);
+
+  const phaseDur = useCallback(
+    (p) => (p === "focus" ? cfg.focus : p === "long" ? cfg.long : cfg.short) * 60,
+    [cfg]
+  );
+
+  const todaySessions = sessions.filter((s) => s.day === todayKey());
+  const todayFocusMin = todaySessions.reduce((a, s) => a + s.minutes, 0);
+  const todayCount = todaySessions.length;
+
+  const completePhase = useCallback(
+    (skipped) => {
+      const st = stateRef.current;
+      if (st.phase === "focus") {
+        if (!skipped) {
+          const mins = st.cfg.focus;
+          setSessions((prev) => [
+            { day: todayKey(), tag: st.activeTag, minutes: mins, at: Date.now() },
+            ...prev,
+          ].slice(0, 200));
+          if (st.cfg.sound && !skipped) beep("focus-end");
+        }
+        const done = st.sessions.filter((s) => s.day === todayKey()).length + (skipped ? 0 : 1);
+        const next = done > 0 && done % 4 === 0 ? "long" : "short";
+        setPhase(next);
+        setRemaining((next === "long" ? st.cfg.long : st.cfg.short) * 60);
+      } else {
+        if (st.cfg.sound && !skipped) beep("break-end");
+        setPhase("focus");
+        setRemaining(st.cfg.focus * 60);
+      }
+      if (!stateRef.current.cfg.autoNext || skipped) {
+        setRunning(false);
+      } else {
+        endRef.current = null;
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (!running) {
+      clearInterval(tickRef.current);
+      endRef.current = null;
+      return;
+    }
+    if (!endRef.current) endRef.current = Date.now() + remaining * 1000;
+    tickRef.current = setInterval(() => {
+      const left = Math.max(0, Math.round((endRef.current - Date.now()) / 1000));
+      setRemaining(left);
+      if (left <= 0) {
+        clearInterval(tickRef.current);
+        endRef.current = null;
+        completePhase(false);
+      }
+    }, 250);
+    return () => clearInterval(tickRef.current);
+  }, [running, completePhase]);
+
+  useEffect(() => {
+    const h = (e) => {
+      if (e.code === "Space" && e.target.tagName !== "INPUT") {
+        e.preventDefault();
+        setRunning((r) => {
+          if (!r) endRef.current = Date.now() + stateRef.current.remaining * 1000;
+          return !r;
+        });
+        endRef.current = null;
+      }
+    };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, []);
+
+  const toggle = () => {
+    endRef.current = null;
+    setRunning((r) => !r);
+  };
+  const reset = () => {
+    setRunning(false);
+    endRef.current = null;
+    setRemaining(phaseDur(phase));
+  };
+  const skip = () => {
+    setRunning(false);
+    endRef.current = null;
+    completePhase(true);
+  };
+
+  const total = phaseDur(phase);
+  const prog = total > 0 ? 1 - remaining / total : 0;
+  const isFocus = phase === "focus";
+  const accent = isFocus ? T.amber : T.sage;
+  const accentDeep = isFocus ? T.amberDeep : T.sageDeep;
+  const R = 130;
+  const CIRC = 2 * Math.PI * R;
+
+  const tagStats = {};
+  todaySessions.forEach((s) => {
+    tagStats[s.tag] = (tagStats[s.tag] || 0) + s.minutes;
+  });
+
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        background: T.bg,
+        color: T.text,
+        fontFamily: "'Spline Sans', 'PingFang SC', 'Microsoft YaHei', sans-serif",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        transition: "background 0.6s",
+      }}
+    >
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Spline+Sans:wght@400;500&family=Spline+Sans+Mono:wght@400;500&family=Fraunces:opsz,wght@9..144,500&display=swap');
+        * { box-sizing: border-box; }
+        button { cursor: pointer; font-family: inherit; }
+        input[type=range] { accent-color: ${accent}; }
+        @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+        .navbtn { background: none; border: none; color: ${T.faint}; font-size: 13px; padding: 6px 14px; border-radius: 6px; letter-spacing: 0.04em; }
+        .navbtn.on { color: ${T.text}; background: ${T.surfaceHi}; }
+        .ctl { border: 1px solid ${T.line}; background: ${T.surface}; color: ${T.text}; border-radius: 8px; padding: 10px 22px; font-size: 14px; transition: border-color 0.2s; }
+        .ctl:hover { border-color: ${T.faint}; }
+        .ctl:focus-visible { outline: 2px solid ${accent}; outline-offset: 2px; }
+        .chip { border: 1px solid ${T.line}; background: none; color: ${T.dim}; border-radius: 999px; padding: 6px 14px; font-size: 13px; transition: all 0.2s; }
+        .chip.on { border-color: ${accentDeep}; color: ${accent}; background: ${accent}14; }
+        .chip:focus-visible { outline: 2px solid ${accent}; outline-offset: 2px; }
+      `}</style>
+
+      <div style={{ width: "100%", maxWidth: 560, padding: "28px 20px 48px" }}>
+        <header style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 28 }}>
+          <div style={{ fontFamily: "'Fraunces', serif", fontSize: 20, letterSpacing: "0.01em" }}>
+            深耕
+            <span style={{ color: T.faint, fontSize: 13, fontFamily: "'Spline Sans', sans-serif", marginLeft: 10 }}>
+              focus timer
+            </span>
+          </div>
+          <nav style={{ display: "flex", gap: 2 }}>
+            <button className={`navbtn ${view === "timer" ? "on" : ""}`} onClick={() => setView("timer")}>计时</button>
+            <button className={`navbtn ${view === "stats" ? "on" : ""}`} onClick={() => setView("stats")}>今日</button>
+            <button className={`navbtn ${view === "settings" ? "on" : ""}`} onClick={() => setView("settings")}>设置</button>
+          </nav>
+        </header>
+
+        {view === "timer" && (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center", marginBottom: 30 }}>
+              {tags.map((t) => (
+                <button
+                  key={t}
+                  className={`chip ${activeTag === t ? "on" : ""}`}
+                  onClick={() => setActiveTag(t)}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+
+            <div style={{ position: "relative", width: 300, height: 300, marginBottom: 30 }}>
+              <svg viewBox="0 0 300 300" width="300" height="300" role="img" aria-label="倒计时进度">
+                <circle cx="150" cy="150" r={R} fill="none" stroke={T.line} strokeWidth="3" />
+                <circle
+                  cx="150" cy="150" r={R} fill="none"
+                  stroke={accent} strokeWidth="3" strokeLinecap="round"
+                  strokeDasharray={CIRC}
+                  strokeDashoffset={CIRC * prog}
+                  transform="rotate(-90 150 150)"
+                  style={{ transition: "stroke-dashoffset 0.3s linear, stroke 0.6s" }}
+                />
+                <circle
+                  cx={150 + R * Math.cos(2 * Math.PI * (1 - prog) - Math.PI / 2 + Math.PI)}
+                  cy={150 + R * Math.sin(2 * Math.PI * (1 - prog) - Math.PI / 2 + Math.PI)}
+                  r="6" fill={accent}
+                  style={{ transition: "fill 0.6s", opacity: running ? 1 : 0.35 }}
+                />
+              </svg>
+              <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                <div style={{ fontSize: 12, letterSpacing: "0.22em", color: accent, marginBottom: 10, transition: "color 0.6s" }}>
+                  {isFocus ? "专注" : phase === "long" ? "长休息" : "短休息"}
+                </div>
+                <div style={{ fontFamily: "'Spline Sans Mono', monospace", fontSize: 62, fontWeight: 500, lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>
+                  {fmt(remaining)}
+                </div>
+                <div style={{ fontSize: 13, color: T.faint, marginTop: 12 }}>
+                  {isFocus ? activeTag : "离开屏幕，站起来走走"}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 12, marginBottom: 24 }}>
+              <button
+                className="ctl"
+                onClick={toggle}
+                style={{
+                  background: running ? T.surface : accent,
+                  color: running ? T.text : "#14161B",
+                  borderColor: running ? T.line : accent,
+                  minWidth: 130,
+                  fontWeight: 500,
+                }}
+              >
+                {running ? "暂停" : remaining < total ? "继续" : "开始"}
+              </button>
+              <button className="ctl" onClick={skip}>跳过</button>
+              <button className="ctl" onClick={reset}>重置</button>
+            </div>
+
+            <div style={{ display: "flex", gap: 24, fontSize: 13, color: T.dim }}>
+              <span>今日 <span style={{ color: T.text, fontFamily: "'Spline Sans Mono', monospace" }}>{todayCount}</span> 个番茄</span>
+              <span>专注 <span style={{ color: T.text, fontFamily: "'Spline Sans Mono', monospace" }}>{todayFocusMin}</span> 分钟</span>
+              <span style={{ color: T.faint }}>空格 = 开始/暂停</span>
+            </div>
+          </div>
+        )}
+
+        {view === "stats" && (
+          <div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 28 }}>
+              {[
+                ["番茄数", todayCount],
+                ["专注分钟", todayFocusMin],
+                ["折合小时", (todayFocusMin / 60).toFixed(1)],
+              ].map(([label, val]) => (
+                <div key={label} style={{ background: T.surface, borderRadius: 10, padding: "16px 14px" }}>
+                  <div style={{ fontSize: 12, color: T.faint, marginBottom: 6 }}>{label}</div>
+                  <div style={{ fontFamily: "'Spline Sans Mono', monospace", fontSize: 26, fontWeight: 500 }}>{val}</div>
+                </div>
+              ))}
+            </div>
+
+            {Object.keys(tagStats).length > 0 && (
+              <div style={{ marginBottom: 28 }}>
+                <div style={{ fontSize: 12, letterSpacing: "0.14em", color: T.faint, marginBottom: 12 }}>按任务分布</div>
+                {Object.entries(tagStats).sort((a, b) => b[1] - a[1]).map(([tag, min]) => (
+                  <div key={tag} style={{ marginBottom: 10 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 5 }}>
+                      <span>{tag}</span>
+                      <span style={{ color: T.dim, fontFamily: "'Spline Sans Mono', monospace" }}>{min} 分钟</span>
+                    </div>
+                    <div style={{ height: 4, background: T.line, borderRadius: 2 }}>
+                      <div style={{ height: 4, width: `${Math.round((min / Math.max(todayFocusMin, 1)) * 100)}%`, background: T.amber, borderRadius: 2 }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{ fontSize: 12, letterSpacing: "0.14em", color: T.faint, marginBottom: 12 }}>今日记录</div>
+            {todaySessions.length === 0 ? (
+              <div style={{ color: T.faint, fontSize: 14, padding: "24px 0", textAlign: "center" }}>
+                还没有完成的番茄。回到计时页，开始第一个。
+              </div>
+            ) : (
+              todaySessions.map((s, i) => (
+                <div key={s.at} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: `1px solid ${T.line}`, fontSize: 14 }}>
+                  <span style={{ color: T.dim }}>
+                    <span style={{ color: T.faint, fontFamily: "'Spline Sans Mono', monospace", marginRight: 12 }}>
+                      {String(todaySessions.length - i).padStart(2, "0")}
+                    </span>
+                    {s.tag}
+                  </span>
+                  <span style={{ fontFamily: "'Spline Sans Mono', monospace", color: T.dim }}>
+                    {new Date(s.at).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })} · {s.minutes}m
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
+        {view === "settings" && (
+          <div style={{ maxWidth: 440, margin: "0 auto" }}>
+            {[
+              ["专注时长", "focus", 5, 90, 5],
+              ["短休息", "short", 1, 15, 1],
+              ["长休息", "long", 10, 40, 5],
+            ].map(([label, key, min, max, step]) => (
+              <div key={key} style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20 }}>
+                <label style={{ fontSize: 14, color: T.dim, width: 74, flexShrink: 0 }}>{label}</label>
+                <input
+                  type="range" min={min} max={max} step={step}
+                  value={cfg[key]}
+                  onChange={(e) => {
+                    const v = parseInt(e.target.value, 10);
+                    setCfg((c) => ({ ...c, [key]: v }));
+                    if (!running && phase === (key === "focus" ? "focus" : phase)) {
+                      if ((key === "focus" && phase === "focus") || (key === "short" && phase === "short") || (key === "long" && phase === "long")) {
+                        setRemaining(v * 60);
+                      }
+                    }
+                  }}
+                  style={{ flex: 1 }}
+                />
+                <span style={{ fontFamily: "'Spline Sans Mono', monospace", fontSize: 14, width: 64, textAlign: "right" }}>
+                  {cfg[key]} 分钟
+                </span>
+              </div>
+            ))}
+
+            <div style={{ borderTop: `1px solid ${T.line}`, margin: "8px 0 20px" }} />
+
+            {[
+              ["自动开始下一段", "autoNext"],
+              ["结束提示音", "sound"],
+            ].map(([label, key]) => (
+              <div key={key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                <span style={{ fontSize: 14, color: T.dim }}>{label}</span>
+                <button
+                  onClick={() => setCfg((c) => ({ ...c, [key]: !c[key] }))}
+                  aria-label={label}
+                  style={{
+                    width: 42, height: 24, borderRadius: 999, border: "none",
+                    background: cfg[key] ? T.amber : T.line,
+                    position: "relative", transition: "background 0.2s",
+                  }}
+                >
+                  <span style={{
+                    position: "absolute", top: 3, left: cfg[key] ? 21 : 3,
+                    width: 18, height: 18, borderRadius: "50%", background: T.text,
+                    transition: "left 0.2s",
+                  }} />
+                </button>
+              </div>
+            ))}
+
+            <div style={{ borderTop: `1px solid ${T.line}`, margin: "8px 0 20px" }} />
+
+            <div style={{ fontSize: 12, letterSpacing: "0.14em", color: T.faint, marginBottom: 12 }}>任务标签</div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+              {tags.map((t) => (
+                <span key={t} className="chip" style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                  {t}
+                  {tags.length > 1 && (
+                    <button
+                      onClick={() => {
+                        setTags((prev) => prev.filter((x) => x !== t));
+                        if (activeTag === t) setActiveTag(tags.find((x) => x !== t));
+                      }}
+                      aria-label={`删除 ${t}`}
+                      style={{ background: "none", border: "none", color: T.faint, padding: 0, fontSize: 14, lineHeight: 1 }}
+                    >
+                      ×
+                    </button>
+                  )}
+                </span>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <input
+                value={newTag}
+                onChange={(e) => setNewTag(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && newTag.trim() && !tags.includes(newTag.trim())) {
+                    setTags((p) => [...p, newTag.trim()]);
+                    setNewTag("");
+                  }
+                }}
+                placeholder="新标签，回车添加"
+                style={{
+                  flex: 1, background: T.surface, border: `1px solid ${T.line}`, borderRadius: 8,
+                  padding: "9px 14px", color: T.text, fontSize: 14, fontFamily: "inherit", outline: "none",
+                }}
+              />
+              <button
+                className="ctl"
+                onClick={() => {
+                  if (newTag.trim() && !tags.includes(newTag.trim())) {
+                    setTags((p) => [...p, newTag.trim()]);
+                    setNewTag("");
+                  }
+                }}
+              >
+                添加
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<FocusTimer />);
+  </script>
+</body>
+</html>
